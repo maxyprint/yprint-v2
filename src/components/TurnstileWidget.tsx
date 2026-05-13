@@ -23,7 +23,14 @@ export default function TurnstileWidget({ onVerify, onExpire }: TurnstileWidgetP
 
   useEffect(() => {
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-    if (!siteKey || !containerRef.current) return
+
+    // No key configured → auto-verify silently, widget invisible
+    if (!siteKey) {
+      onVerify('turnstile-disabled')
+      return
+    }
+
+    if (!containerRef.current) return
 
     const renderWidget = () => {
       if (!containerRef.current || widgetIdRef.current) return
@@ -46,10 +53,11 @@ export default function TurnstileWidget({ onVerify, onExpire }: TurnstileWidgetP
       document.head.appendChild(script)
     }
 
-    return () => {
-      widgetIdRef.current = null
-    }
+    return () => { widgetIdRef.current = null }
   }, [onVerify, onExpire])
+
+  // Hidden when no key configured
+  if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return null
 
   return <div ref={containerRef} />
 }

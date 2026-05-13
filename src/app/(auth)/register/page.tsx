@@ -20,7 +20,9 @@ export default function RegisterPage() {
     privacy: false,
     marketing: false,
   })
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? null : 'disabled'
+  )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
