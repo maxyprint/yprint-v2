@@ -1,0 +1,73 @@
+{
+  "product": "Oversized T-Shirt",
+  "unit": "cm",
+  "print_y_offset_mm": 60,
+  "per_size": {
+    "XS": {
+      "chest_cm": 59,
+      "length_cm": 67,
+      "rib_height_cm": 2,
+      "shoulder_cm": 47,
+      "sleeve_cm": 22,
+      "sleeve_opening_cm": 15,
+      "hem_cm": 61,
+      "neck_cm": 16,
+      "biceps_cm": 22
+    },
+    "S": {
+      "chest_cm": 60,
+      "length_cm": 68,
+      "rib_height_cm": 2,
+      "shoulder_cm": 48,
+      "sleeve_cm": 22,
+      "sleeve_opening_cm": 16,
+      "hem_cm": 62,
+      "neck_cm": 17,
+      "biceps_cm": 23
+    },
+    "M": {
+      "chest_cm": 61,
+      "length_cm": 69,
+      "rib_height_cm": 2,
+      "shoulder_cm": 49,
+      "sleeve_cm": 23,
+      "sleeve_opening_cm": 17,
+      "hem_cm": 63,
+      "neck_cm": 18,
+      "biceps_cm": 24
+    },
+    "L": {
+      "chest_cm": 62,
+      "length_cm": 70,
+      "rib_height_cm": 2,
+      "shoulder_cm": 51,
+      "sleeve_cm": 24,
+      "sleeve_opening_cm": 18,
+      "hem_cm": 64,
+      "neck_cm": 18,
+      "biceps_cm": 26
+    },
+    "XL": {
+      "chest_cm": 64,
+      "length_cm": 71,
+      "rib_height_cm": 2,
+      "shoulder_cm": 53,
+      "sleeve_cm": 24,
+      "sleeve_opening_cm": 19,
+      "hem_cm": 66,
+      "neck_cm": 19,
+      "biceps_cm": 28
+    },
+    "XXL": {
+      "chest_cm": 66,
+      "length_cm": 72,
+      "rib_height_cm": 2,
+      "shoulder_cm": 55,
+      "sleeve_cm": 25,
+      "sleeve_opening_cm": 20,
+      "hem_cm": 68,
+      "neck_cm": 20,
+      "biceps_cm": 30
+    }
+  }
+}

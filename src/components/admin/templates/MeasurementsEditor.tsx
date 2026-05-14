@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SizeMeasurement, MeasurementsData, calcPrintCoords } from '@/lib/print/calcCoords'
 
 export type { SizeMeasurement, MeasurementsData }
@@ -38,6 +38,7 @@ export function MeasurementsEditor({ value, onChange, printWidthCm, printHeightC
   )
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [yOffset, setYOffset] = useState(value.print_y_offset_mm)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (Object.keys(value.per_size).length > 0) {
@@ -63,6 +64,29 @@ export function MeasurementsEditor({ value, onChange, printWidthCm, printHeightC
     }
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      try {
+        const parsed = JSON.parse(text)
+        // Support both { per_size: {...}, print_y_offset_mm: 60 } and bare { "S": {...}, ... }
+        const perSize = parsed.per_size ?? parsed
+        const newYOffset = typeof parsed.print_y_offset_mm === 'number' ? parsed.print_y_offset_mm : yOffset
+        setRawJson(JSON.stringify(perSize, null, 2))
+        setJsonError(null)
+        setYOffset(newYOffset)
+        onChange({ per_size: perSize, print_y_offset_mm: newYOffset })
+      } catch (err: any) {
+        setJsonError(`Datei konnte nicht gelesen werden: ${err.message}`)
+      }
+    }
+    reader.readAsText(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const handleYOffsetChange = (v: number) => {
     setYOffset(v)
     onChange({ ...value, print_y_offset_mm: v })
@@ -79,14 +103,31 @@ export function MeasurementsEditor({ value, onChange, printWidthCm, printHeightC
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-medium text-[#1d1d1f]">Maßtabelle (JSON)</label>
-          <button
-            type="button"
-            onClick={() => handleJsonChange(TEMPLATE_JSON)}
-            className="text-xs text-[#0079FF] hover:underline"
-          >
-            Vorlage einfügen
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs text-[#0079FF] hover:underline"
+            >
+              JSON-Datei hochladen
+            </button>
+            <span className="text-[rgba(0,0,0,0.2)] text-xs">·</span>
+            <button
+              type="button"
+              onClick={() => handleJsonChange(TEMPLATE_JSON)}
+              className="text-xs text-[rgba(0,0,0,0.4)] hover:text-[#1d1d1f] hover:underline"
+            >
+              Vorlage einfügen
+            </button>
+          </div>
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
         <p className="text-xs text-[rgba(0,0,0,0.4)] mb-2">
           Pflichtfelder pro Größe:{' '}
           <code className="bg-[#f3f4f6] px-1 rounded">chest_cm</code>{' '}
