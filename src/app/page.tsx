@@ -105,9 +105,7 @@ export default function HomePage() {
             <img
               src="/logo.png"
               alt="yprint"
-              width={100}
-              height={40}
-              style={{ objectFit: 'contain', display: 'block' }}
+              style={{ height: '44px', width: 'auto', objectFit: 'contain', display: 'block' }}
             />
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

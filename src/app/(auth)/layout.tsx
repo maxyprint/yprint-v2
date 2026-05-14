@@ -14,9 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <img
               src="/logo.png"
               alt="yprint Logo"
-              width={100}
-              height={40}
-              style={{ objectFit: 'contain' }}
+              style={{ height: '44px', width: 'auto', objectFit: 'contain' }}
             />
           </a>
         </div>

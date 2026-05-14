@@ -63,8 +63,7 @@ export default function AppNav() {
             <img
               src="/logo.png"
               alt="yprint"
-              height={32}
-              style={{ objectFit: 'contain' }}
+              style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
               onError={(e) => {
                 const target = e.currentTarget as HTMLImageElement
                 target.style.display = 'none'
