@@ -32,28 +32,7 @@ export default function HomePage() {
           }}
         >
           <a href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <img
-              src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg"
-              alt="yprint"
-              height={28}
-              style={{ objectFit: 'contain' }}
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement
-                target.style.display = 'none'
-                const next = target.nextElementSibling as HTMLElement
-                if (next) next.style.display = 'block'
-              }}
-            />
-            <span
-              style={{
-                display: 'none',
-                fontSize: '24px',
-                fontWeight: 800,
-                color: '#111827',
-              }}
-            >
-              yprint
-            </span>
+            <span style={{ fontSize: '24px', fontWeight: 800, color: '#111827' }}>yprint</span>
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Link

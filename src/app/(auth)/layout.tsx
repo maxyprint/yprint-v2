@@ -12,29 +12,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-8 text-center">
           <a href="/" className="inline-block">
             <img
-              src="https://yprint.de/wp-content/uploads/2024/10/y-icon.svg"
+              src="/designer/img/y-icon.svg"
               alt="YPrint Logo"
               width={48}
               height={48}
               style={{ objectFit: 'contain' }}
-              onError={(e) => {
-                const target = e.currentTarget as HTMLImageElement
-                target.style.display = 'none'
-                const next = target.nextElementSibling as HTMLElement
-                if (next) next.style.display = 'block'
-              }}
             />
-            <span
-              style={{
-                display: 'none',
-                fontSize: '32px',
-                fontWeight: 800,
-                color: '#3b82f6',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              y
-            </span>
           </a>
         </div>
         {children}
