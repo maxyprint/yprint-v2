@@ -1,18 +1,19 @@
 /**
- * Migration: fix zone coordinates + merge duplicate black variation.
+ * Migration: correct zone coordinates + fix colorOverlay black background.
  *
- * Problems fixed:
- *   1. imageZone was contain-fit → black gaps. Now fill-width top-anchored.
- *   2. safeZone/printZone y-coordinates were % of image, not % of canvas.
- *   3. var_1778776407440 is a duplicate black variation — its view_front becomes
- *      var_black/view_back so the designer shows Front/Back tabs on one swatch.
+ * Root causes fixed:
+ *   1. colorOverlayEnabled=true + multiply blend on white-background image → entire image black.
+ *      Fix: set colorOverlayEnabled=false (use real dark mockup images per color variant).
+ *   2. Zone coordinates used fill-width scale → safeZone too wide, printZone misaligned.
+ *      Fix: use contain-fit scale with proper offsetX/Y for centering.
+ *   3. var_1778776407440 was duplicate black variation → merged into var_black/view_back.
  *
- * Correct zone format (matching designer.bundle.js renderTemplateView):
- *   imageZone.scaleX/Y = CANVAS_W / naturalW  (fill-width)
- *   imageZone.top = (naturalH * scale / 2) / CANVAS_H * 100  (top-anchored)
- *   zone.left/top = CENTER as % of canvas (0–100)
- *   zone.width/height = SIZE as % of canvas (0–100)
- *   y_canvas_pct = naturalY * CANVAS_W / (naturalW * CANVAS_H) * 100
+ * Correct coordinate mapping (contain-fit centered image):
+ *   scale = min(CANVAS_W/naturalW, CANVAS_H/naturalH)
+ *   offsetX = (CANVAS_W - naturalW * scale) / 2
+ *   offsetY = (CANVAS_H - naturalH * scale) / 2
+ *   position_x_pct = (offsetX + naturalX * scale) / CANVAS_W * 100  ← center %
+ *   size_x_pct     = naturalW_px * scale / CANVAS_W * 100            ← size %
  *
  * Run: npx tsx scripts/fix-template-zones.ts
  */
@@ -21,14 +22,13 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { createClient } from '@supabase/supabase-js'
 
-// Load .env.local
 try {
   const lines = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8').split('\n')
   for (const line of lines) {
     const m = line.match(/^([^#=]+)=(.*)$/)
     if (m) process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, '')
   }
-} catch { /* file may not exist */ }
+} catch { /* ok */ }
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +46,6 @@ interface CalibrationData {
   collarLine: { y: number }
   referenceSize: string
 }
-
 interface Measurements {
   per_size: Record<string, { chest_cm: number; length_cm: number; rib_height_cm: number }>
   print_y_offset_mm: number
@@ -75,29 +74,28 @@ function calcZones(
   const printLeftPx  = shirtLeftPx + (refM.chest_cm - printWidthCm) / 2 * ratio
   const printTopPx   = collarTopPx + (refM.rib_height_cm + measurements.print_y_offset_mm / 10) * ratio
 
-  const scale = CANVAS_W / naturalW
-  const xPct  = (px: number) => r(px / naturalW * 100)
-  const yPct  = (px: number) => r(px * scale / CANVAS_H * 100)
+  const scale   = Math.min(CANVAS_W / naturalW, CANVAS_H / naturalH)
+  const offsetX = (CANVAS_W - naturalW * scale) / 2
+  const offsetY = (CANVAS_H - naturalH * scale) / 2
+
+  const xPos = (px: number) => r((offsetX + px * scale) / CANVAS_W * 100)
+  const yPos = (py: number) => r((offsetY + py * scale) / CANVAS_H * 100)
+  const xSz  = (px: number) => r(px * scale / CANVAS_W * 100)
+  const ySz  = (py: number) => r(py * scale / CANVAS_H * 100)
 
   return {
-    imageZone: {
-      left: 50,
-      top: r((naturalH * scale / 2) / CANVAS_H * 100),
-      scaleX: r3(scale),
-      scaleY: r3(scale),
-      angle: 0,
-    },
+    imageZone: { left: 50, top: 50, scaleX: r3(scale), scaleY: r3(scale), angle: 0 },
     safeZone: {
-      left:   xPct(shirtLeftPx + shirtWidthPx  / 2),
-      top:    yPct(collarTopPx  + shirtHeightPx / 2),
-      width:  xPct(shirtWidthPx),
-      height: yPct(shirtHeightPx),
+      left:   xPos(shirtLeftPx + shirtWidthPx  / 2),
+      top:    yPos(collarTopPx  + shirtHeightPx / 2),
+      width:  xSz(shirtWidthPx),
+      height: ySz(shirtHeightPx),
     },
     printZone: {
-      left:   xPct(printLeftPx + printWidthPx  / 2),
-      top:    yPct(printTopPx  + printHeightPx / 2),
-      width:  xPct(printWidthPx),
-      height: yPct(printHeightPx),
+      left:   xPos(printLeftPx + printWidthPx  / 2),
+      top:    yPos(printTopPx  + printHeightPx / 2),
+      width:  xSz(printWidthPx),
+      height: ySz(printHeightPx),
     },
   }
 }
@@ -116,48 +114,48 @@ async function main() {
     const measurements: Measurements | null = variations._measurements ?? null
     let changed = false
 
-    // ── Step 1: Merge var_1778776407440 into var_black ──────────────────────
+    // ── Step 1: Merge var_1778776407440 into var_black (if still present) ──
     const DUPE_KEY = 'var_1778776407440'
     const TARGET_KEY = 'var_black'
     if (variations[DUPE_KEY] && variations[TARGET_KEY]) {
       const dupeViews = (variations[DUPE_KEY].views ?? {}) as Record<string, any>
       const firstDupeView = Object.values(dupeViews)[0] as any
-
       if (firstDupeView) {
-        // Rename view to 'Back' and add to var_black
         const backView = { ...firstDupeView, name: 'Back', akd_position: firstDupeView.akd_position ?? 'back' }
         variations[TARGET_KEY].views = variations[TARGET_KEY].views ?? {}
         variations[TARGET_KEY].views['view_back'] = backView
-        console.log(`  ✓ Merged ${DUPE_KEY}/view into ${TARGET_KEY}/view_back`)
+        console.log(`  ✓ Merged ${DUPE_KEY}/view → ${TARGET_KEY}/view_back`)
       }
       delete variations[DUPE_KEY]
       console.log(`  ✓ Deleted ${DUPE_KEY}`)
       changed = true
     }
 
-    // ── Step 2: Fix imageZone + zones for every view ─────────────────────────
+    // ── Step 2: Fix every view ────────────────────────────────────────────────
     for (const [varKey, variation] of Object.entries(variations)) {
       if (varKey.startsWith('_')) continue
       const views = (variation as any).views as Record<string, any>
       if (!views) continue
 
       for (const [viewKey, view] of Object.entries(views)) {
-        console.log(`  Variation ${varKey} / View ${viewKey}:`)
+        console.log(`  ${varKey} / ${viewKey}:`)
 
-        // Natural size for OG Shirt images (896×1200). If image dimensions differ,
-        // the admin can re-upload in the admin UI to trigger auto-recalculation.
+        // Fix colorOverlay: multiply blend on white-background images makes everything black.
+        // Correct approach: use an actual dark mockup image + no overlay.
+        if ((view as any).colorOverlayEnabled) {
+          ;(view as any).colorOverlayEnabled = false
+          console.log(`    colorOverlayEnabled → false (multiply blend causes black bg on non-transparent images)`)
+          changed = true
+        }
+
+        // Natural size — hardcoded for OG Shirt (896×1200).
+        // For different images, admin re-uploads to trigger auto-recalculation.
         const naturalW = 896
         const naturalH = 1200
+        const scale = Math.min(CANVAS_W / naturalW, CANVAS_H / naturalH)
 
-        // Fix imageZone (fill-width top-anchored)
-        const scale = CANVAS_W / naturalW
-        view.imageZone = {
-          left: 50,
-          top: r((naturalH * scale / 2) / CANVAS_H * 100),
-          scaleX: r3(scale),
-          scaleY: r3(scale),
-          angle: 0,
-        }
+        // Fix imageZone → contain-fit centered
+        view.imageZone = { left: 50, top: 50, scaleX: r3(scale), scaleY: r3(scale), angle: 0 }
         console.log(`    imageZone → ${JSON.stringify(view.imageZone)}`)
 
         // Recalculate zones from calibration + measurements
@@ -176,7 +174,7 @@ async function main() {
             console.log(`    safeZone  → ${JSON.stringify(zones.safeZone)}`)
             console.log(`    printZone → ${JSON.stringify(zones.printZone)}`)
           } catch (e: any) {
-            console.warn(`    Could not recalculate zones: ${e.message}`)
+            console.warn(`    Cannot recalculate zones: ${e.message}`)
           }
         } else {
           console.warn(`    Missing measurements or calibration — skipping zone recalculation`)
@@ -190,11 +188,10 @@ async function main() {
         .from('design_templates')
         .update({ variations })
         .eq('id', tmpl.id)
-
       if (updateError) {
         console.error(`  ✗ Update failed: ${updateError.message}`)
       } else {
-        console.log(`  ✓ Template ${tmpl.id} updated`)
+        console.log(`  ✓ Updated`)
       }
     } else {
       console.log(`  — No changes`)
@@ -202,7 +199,7 @@ async function main() {
     console.log()
   }
 
-  console.log('Migration complete.')
+  console.log('Done.')
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

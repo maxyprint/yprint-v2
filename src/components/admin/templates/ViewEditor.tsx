@@ -36,13 +36,17 @@ interface Props {
 // left/top = CENTER position %, width/height = SIZE %.
 // Matching designer.bundle.js: rect.left = zone.left * canvas.width / 100, originX:'center'
 //
-// imageZone uses fill-width top-anchored scaling:
-//   scaleX = scaleY = CANVAS_W / naturalW
-//   imageZone.top = (naturalH * scale / 2) / CANVAS_H * 100
-// → image fills canvas width, collar at canvas top, hem may extend below canvas.
+// imageZone uses centered contain-fit:
+//   scale = min(CANVAS_W/naturalW, CANVAS_H/naturalH)
+//   imageZone = {left:50, top:50, scaleX:scale, scaleY:scale}
 //
-// Zone y-coordinates: canvas_y_pct = naturalY * CANVAS_W / (naturalW * CANVAS_H) * 100
-// Zone x-coordinates: canvas_x_pct = naturalX / naturalW * 100 (same as image %, fills width)
+// Zone positions must account for the centering offset (gaps around the image):
+//   offsetX = (CANVAS_W - naturalW * scale) / 2
+//   offsetY = (CANVAS_H - naturalH * scale) / 2
+//   x_pct = (offsetX + naturalX * scale) / CANVAS_W * 100  ← center position
+//   y_pct = (offsetY + naturalY * scale) / CANVAS_H * 100
+//   width_pct  = naturalW_px * scale / CANVAS_W * 100      ← size (no offset)
+//   height_pct = naturalH_px * scale / CANVAS_H * 100
 function calcZones(
   cal: CalibrationData,
   measurements: MeasurementsData,
@@ -65,31 +69,35 @@ function calcZones(
   const printLeftPx  = shirtLeftPx + (refM.chest_cm - printWidthCm) / 2 * ratio
   const printTopPx   = collarTopPx + (refM.rib_height_cm + measurements.print_y_offset_mm / 10) * ratio
 
-  const scale = CANVAS_W / naturalW
+  const scale   = Math.min(CANVAS_W / naturalW, CANVAS_H / naturalH)
+  const offsetX = (CANVAS_W - naturalW * scale) / 2
+  const offsetY = (CANVAS_H - naturalH * scale) / 2
+
   const r  = (v: number) => Math.round(v * 10)  / 10
   const r3 = (v: number) => Math.round(v * 1000) / 1000
-  const xPct = (px: number) => r(px / naturalW * 100)
-  const yPct = (px: number) => r(px * scale / CANVAS_H * 100)
+  // Center position as % of canvas (accounts for centering offset)
+  const xPos = (px: number) => r((offsetX + px * scale) / CANVAS_W * 100)
+  const yPos = (py: number) => r((offsetY + py * scale) / CANVAS_H * 100)
+  // Size as % of canvas (no offset)
+  const xSz  = (px: number) => r(px * scale / CANVAS_W * 100)
+  const ySz  = (py: number) => r(py * scale / CANVAS_H * 100)
 
   return {
     imageZone: {
-      left:  50,
-      top:   r((naturalH * scale / 2) / CANVAS_H * 100),
-      scaleX: r3(scale),
-      scaleY: r3(scale),
-      angle: 0,
+      left: 50, top: 50,  // contain-fit centered always lands at 50/50
+      scaleX: r3(scale), scaleY: r3(scale), angle: 0,
     },
     safeZone: {
-      left:   xPct(shirtLeftPx + shirtWidthPx  / 2),
-      top:    yPct(collarTopPx  + shirtHeightPx / 2),
-      width:  xPct(shirtWidthPx),
-      height: yPct(shirtHeightPx),
+      left:   xPos(shirtLeftPx + shirtWidthPx  / 2),
+      top:    yPos(collarTopPx  + shirtHeightPx / 2),
+      width:  xSz(shirtWidthPx),
+      height: ySz(shirtHeightPx),
     },
     printZone: {
-      left:   xPct(printLeftPx + printWidthPx  / 2),
-      top:    yPct(printTopPx  + printHeightPx / 2),
-      width:  xPct(printWidthPx),
-      height: yPct(printHeightPx),
+      left:   xPos(printLeftPx + printWidthPx  / 2),
+      top:    yPos(printTopPx  + printHeightPx / 2),
+      width:  xSz(printWidthPx),
+      height: ySz(printHeightPx),
     },
   }
 }
@@ -127,13 +135,12 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
 
       const img = new window.Image()
       img.onload = () => {
-        const scale = CANVAS_W / img.naturalWidth
-        const top = Math.round((img.naturalHeight * scale / 2) / CANVAS_H * 1000) / 10
+        const scale = Math.min(CANVAS_W / img.naturalWidth, CANVAS_H / img.naturalHeight)
         const ns = { w: img.naturalWidth, h: img.naturalHeight }
         setNaturalSize(ns)
         const imageZone = {
           left: 50,
-          top,
+          top: 50,
           scaleX: Math.round(scale * 1000) / 1000,
           scaleY: Math.round(scale * 1000) / 1000,
           angle: 0 as const,
