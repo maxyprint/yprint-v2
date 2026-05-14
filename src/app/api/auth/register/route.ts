@@ -94,7 +94,15 @@ export async function POST(request: Request) {
     options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email` },
   })
   if (linkData?.properties?.action_link) {
-    await sendVerificationEmail(email, linkData.properties.action_link, username).catch(() => {})
+    const emailResult = await sendVerificationEmail(email, linkData.properties.action_link, username).catch((err) => {
+      console.error('[Resend] Verification email failed:', err?.message ?? err)
+      return null
+    })
+    if (emailResult && 'error' in emailResult && emailResult.error) {
+      console.error('[Resend] API error:', JSON.stringify(emailResult.error))
+    }
+  } else {
+    console.error('[Register] generateLink returned no action_link for', email)
   }
 
   // HubSpot integration (non-blocking)

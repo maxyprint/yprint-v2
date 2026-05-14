@@ -2,10 +2,22 @@ import { Resend } from 'resend'
 
 export const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? 'noreply@yprint.de'
+// Falls yprint.de noch nicht in Resend verifiziert: Fallback auf Resend-Testdomain
+const FROM = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
+const FROM_VERIFIED = process.env.RESEND_DOMAIN_VERIFIED === 'true'
+
+async function send(payload: Parameters<typeof resend.emails.send>[0]) {
+  // Ersten Versuch mit konfigurierter FROM-Adresse
+  const result = await resend.emails.send(payload)
+  if (!result.error || FROM_VERIFIED) return result
+
+  // Fallback auf Resend-eigene Domain (funktioniert ohne Verifikation)
+  console.warn('[Resend] Domain nicht verifiziert, nutze Fallback-Sender')
+  return resend.emails.send({ ...payload, from: 'yprint <onboarding@resend.dev>' })
+}
 
 export async function sendVerificationEmail(email: string, verificationUrl: string, firstName?: string) {
-  return resend.emails.send({
+  return send({
     from: FROM,
     to: email,
     subject: 'Bestätige deine yprint E-Mail-Adresse',
@@ -25,7 +37,7 @@ export async function sendVerificationEmail(email: string, verificationUrl: stri
 }
 
 export async function sendPasswordResetEmail(email: string, resetUrl: string) {
-  return resend.emails.send({
+  return send({
     from: FROM,
     to: email,
     subject: 'yprint — Passwort zurücksetzen',
@@ -54,7 +66,7 @@ export async function sendOrderConfirmationEmail(
     `<tr><td>${i.name}</td><td>${i.quantity}x</td><td style="text-align:right">${i.price.toFixed(2)} €</td></tr>`
   ).join('')
 
-  return resend.emails.send({
+  return send({
     from: FROM,
     to: email,
     subject: `yprint — Bestellbestätigung #${orderNumber}`,
