@@ -101,8 +101,8 @@ export default function AppNav() {
                   fontWeight: 500,
                   textDecoration: 'none',
                   transition: 'all 0.2s ease',
-                  color: isActive(link.href) ? '#3b82f6' : '#374151',
-                  background: isActive(link.href) ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                  color: isActive(link.href) ? '#0079FF' : '#374151',
+                  background: isActive(link.href) ? 'rgba(0, 121, 255, 0.08)' : 'transparent',
                 }}
               >
                 {link.icon}
@@ -139,7 +139,7 @@ export default function AppNav() {
                   position: 'absolute',
                   top: '-2px',
                   right: '-2px',
-                  background: '#3b82f6',
+                  background: '#0079FF',
                   color: '#ffffff',
                   fontSize: '11px',
                   fontWeight: 600,
@@ -195,7 +195,7 @@ export default function AppNav() {
             onClick={() => logout()}
             style={{
               fontSize: '14px',
-              color: '#3b82f6',
+              color: '#0079FF',
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',

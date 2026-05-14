@@ -5,23 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import TurnstileWidget from '@/components/TurnstileWidget'
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  height: '52px',
-  padding: '16px 20px',
-  fontFamily: 'inherit',
-  fontSize: '16px',
-  fontWeight: 400,
-  lineHeight: 1.5,
-  color: '#111827',
-  backgroundColor: '#f3f4f6',
-  border: '2px solid #e5e7eb',
-  borderRadius: '12px',
-  outline: 'none',
-  transition: 'all 0.3s ease',
-  boxSizing: 'border-box' as const,
-}
-
 function FormInput({
   id,
   type = 'text',
@@ -52,10 +35,21 @@ function FormInput({
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       style={{
-        ...inputStyle,
-        backgroundColor: focused ? '#ffffff' : '#f3f4f6',
-        borderColor: focused ? '#3b82f6' : '#e5e7eb',
-        boxShadow: focused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+        width: '100%',
+        height: '52px',
+        padding: '12px 15px',
+        fontFamily: 'inherit',
+        fontSize: '16px',
+        fontWeight: 400,
+        lineHeight: 1.5,
+        color: '#111827',
+        backgroundColor: '#ffffff',
+        border: focused ? '1px solid #0079FF' : '1px solid #e5e7eb',
+        borderRadius: '10px',
+        outline: 'none',
+        transition: 'all 0.3s ease',
+        boxSizing: 'border-box' as const,
+        boxShadow: focused ? '0 0 0 3px rgba(0, 121, 255, 0.1)' : 'none',
       }}
     />
   )
@@ -66,14 +60,12 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState({
     email: '',
+    username: '',
     password: '',
     passwordConfirm: '',
-    firstName: '',
-    lastName: '',
   })
   const [consents, setConsents] = useState({
     terms: false,
-    privacy: false,
     marketing: false,
   })
   const [turnstileToken, setTurnstileToken] = useState<string | null>(
@@ -86,7 +78,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!turnstileToken) return setError('Bitte bestätige, dass du kein Bot bist.')
-    if (!consents.terms || !consents.privacy) return setError('Bitte akzeptiere die Nutzungsbedingungen und Datenschutzerklärung.')
+    if (!consents.terms) return setError('Bitte akzeptiere die Datenschutzerklärung.')
     if (form.password !== form.passwordConfirm) return setError('Passwörter stimmen nicht überein.')
     if (form.password.length < 8) return setError('Passwort muss mindestens 8 Zeichen lang sein.')
 
@@ -100,12 +92,11 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email: form.email,
           password: form.password,
-          firstName: form.firstName,
-          lastName: form.lastName,
+          username: form.username,
           turnstileToken,
           consents: {
             terms: consents.terms,
-            privacy: consents.privacy,
+            privacy: consents.terms,
             marketing: consents.marketing,
           },
         }),
@@ -123,8 +114,8 @@ export default function RegisterPage() {
 
   const cardStyle: React.CSSProperties = {
     background: '#ffffff',
-    borderRadius: '20px',
-    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+    borderRadius: '30px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
     border: '1px solid #e5e7eb',
     padding: '40px',
     width: '100%',
@@ -189,30 +180,12 @@ export default function RegisterPage() {
           Konto erstellen
         </h1>
         <p style={{ fontSize: '15px', color: '#6b7280', margin: 0 }}>
-          Registriere dich bei yprint
+          Gestalte noch heute deine eigene Kollektion.
         </p>
       </div>
 
       <form onSubmit={handleSubmit}>
-        {/* Name row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
-          <FormInput
-            id="firstName"
-            value={form.firstName}
-            onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-            placeholder="Vorname"
-            required
-          />
-          <FormInput
-            id="lastName"
-            value={form.lastName}
-            onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-            placeholder="Nachname"
-            required
-          />
-        </div>
-
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <FormInput
             id="email"
             type="email"
@@ -224,19 +197,31 @@ export default function RegisterPage() {
           />
         </div>
 
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <FormInput
+            id="username"
+            type="text"
+            value={form.username}
+            onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            placeholder="Benutzername"
+            autoComplete="username"
+            required
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
           <FormInput
             id="password"
             type="password"
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-            placeholder="Passwort (mind. 8 Zeichen)"
+            placeholder="Passwort"
             autoComplete="new-password"
             required
           />
         </div>
 
-        <div style={{ marginBottom: '24px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <FormInput
             id="passwordConfirm"
             type="password"
@@ -248,37 +233,46 @@ export default function RegisterPage() {
           />
         </div>
 
-        {/* Legal notice */}
-        <div
+        {/* Turnstile */}
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+        </div>
+
+        {/* Terms consent */}
+        <label
           style={{
-            background: '#f8fafc',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '16px',
-            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+            cursor: 'pointer',
+            marginBottom: '15px',
             fontSize: '13px',
             color: '#6b7280',
             lineHeight: 1.5,
-            textAlign: 'center',
           }}
         >
-          Durch Klicken auf &apos;Registrieren&apos; akzeptierst du unsere{' '}
-          <Link href="/agb" target="_blank" style={{ color: '#3b82f6', textDecoration: 'none' }}>
-            Nutzungsbedingungen
-          </Link>
-          {' '}und bestätigst, die{' '}
-          <Link href="/datenschutz" target="_blank" style={{ color: '#3b82f6', textDecoration: 'none' }}>
-            Datenschutzerklärung
-          </Link>
-          {' '}gelesen zu haben.
-        </div>
+          <input
+            type="checkbox"
+            checked={consents.terms}
+            onChange={e => setConsents(c => ({ ...c, terms: e.target.checked }))}
+            required
+            style={{ marginTop: '3px', accentColor: '#0079FF', flexShrink: 0 }}
+          />
+          <span>
+            Ich habe die{' '}
+            <Link href="/datenschutz" target="_blank" style={{ color: '#0079FF', textDecoration: 'underline' }}>
+              Datenschutzerklärung
+            </Link>
+            {' '}gelesen und stimme der darin beschriebenen Verarbeitung meiner Daten zur Erbringung des Dienstes zu.
+          </span>
+        </label>
 
         {/* Optional marketing consent */}
         <label
           style={{
             display: 'flex',
             alignItems: 'flex-start',
-            gap: '12px',
+            gap: '10px',
             cursor: 'pointer',
             marginBottom: '20px',
             fontSize: '13px',
@@ -290,15 +284,10 @@ export default function RegisterPage() {
             type="checkbox"
             checked={consents.marketing}
             onChange={e => setConsents(c => ({ ...c, marketing: e.target.checked }))}
-            style={{ marginTop: '2px', accentColor: '#3b82f6' }}
+            style={{ marginTop: '3px', accentColor: '#0079FF', flexShrink: 0 }}
           />
           <span>Ich möchte Newsletter und Angebote per E-Mail erhalten (optional)</span>
         </label>
-
-        {/* Turnstile */}
-        <div style={{ textAlign: 'center', margin: '20px 0' }}>
-          <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-        </div>
 
         {error && (
           <div
@@ -322,7 +311,7 @@ export default function RegisterPage() {
           className="yprint-button yprint-button-primary"
           style={{ width: '100%' }}
         >
-          {loading ? 'Konto wird erstellt…' : 'Registrieren'}
+          {loading ? 'Konto wird erstellt…' : 'Konto erstellen'}
         </button>
       </form>
 

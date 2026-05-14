@@ -104,7 +104,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   textDecoration: 'none',
                   color: 'inherit',
                   minHeight: '48px',
-                  borderLeft: active ? '4px solid #3b82f6' : '4px solid transparent',
+                  borderLeft: active ? '4px solid #0079FF' : '4px solid transparent',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -113,11 +113,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                       width: '32px',
                       height: '32px',
                       borderRadius: '8px',
-                      background: active ? 'rgba(59,130,246,0.1)' : '#f3f4f6',
+                      background: active ? 'rgba(0,121,255,0.1)' : '#f3f4f6',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: active ? '#3b82f6' : '#6b7280',
+                      color: active ? '#0079FF' : '#6b7280',
                       flexShrink: 0,
                     }}
                   >
@@ -137,7 +137,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                   width="14"
                   height="14"
                   fill="none"
-                  stroke={active ? '#3b82f6' : '#9ca3af'}
+                  stroke={active ? '#0079FF' : '#9ca3af'}
                   strokeWidth="2"
                   viewBox="0 0 24 24"
                 >

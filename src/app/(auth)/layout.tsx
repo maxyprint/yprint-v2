@@ -4,7 +4,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       className="min-h-screen flex items-center justify-center p-5 box-border"
       style={{
         fontFamily: "'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif",
-        background: 'linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 50%, #f3f4f6 100%)',
+        backgroundColor: '#f3f4f6',
       }}
     >
       <div className="w-full flex flex-col items-center">
@@ -12,10 +12,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-8 text-center">
           <a href="/" className="inline-block">
             <img
-              src="/designer/img/y-icon.svg"
-              alt="YPrint Logo"
-              width={48}
-              height={48}
+              src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg"
+              alt="yprint Logo"
+              width={100}
+              height={40}
               style={{ objectFit: 'contain' }}
             />
           </a>

@@ -61,14 +61,14 @@ export default function DashboardPage() {
             justifyContent: 'center',
             gap: '6px',
             padding: '10px 18px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            background: '#0079FF',
             color: '#ffffff',
             borderRadius: '10px',
             fontSize: '14px',
             fontWeight: 600,
             textDecoration: 'none',
             transition: 'all 0.3s ease',
-            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+            boxShadow: '0 2px 8px rgba(0, 121, 255, 0.3)',
           }}
         >
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             style={{
               width: '64px',
               height: '64px',
-              background: 'rgba(59,130,246,0.1)',
+              background: 'rgba(0,121,255,0.1)',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
@@ -126,7 +126,7 @@ export default function DashboardPage() {
               margin: '0 auto 20px auto',
             }}
           >
-            <svg width="32" height="32" fill="none" stroke="#3b82f6" strokeWidth="1.5" viewBox="0 0 24 24">
+            <svg width="32" height="32" fill="none" stroke="#0079FF" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" />
             </svg>
           </div>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
               alignItems: 'center',
               justifyContent: 'center',
               padding: '14px 28px',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              background: '#0079FF',
               color: '#ffffff',
               borderRadius: '12px',
               fontSize: '15px',
@@ -175,9 +175,9 @@ export default function DashboardPage() {
                 }}
                 onMouseEnter={e => {
                   const el = e.currentTarget as HTMLDivElement
-                  el.style.borderColor = '#3b82f6'
+                  el.style.borderColor = '#0079FF'
                   el.style.transform = 'translateY(-2px)'
-                  el.style.boxShadow = '0 4px 12px rgba(59,130,246,0.15)'
+                  el.style.boxShadow = '0 4px 12px rgba(0,121,255,0.15)'
                 }}
                 onMouseLeave={e => {
                   const el = e.currentTarget as HTMLDivElement
@@ -337,9 +337,9 @@ export default function DashboardPage() {
               }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLAnchorElement
-                el.style.borderColor = '#3b82f6'
-                el.style.color = '#3b82f6'
-                el.style.background = 'rgba(59,130,246,0.04)'
+                el.style.borderColor = '#0079FF'
+                el.style.color = '#0079FF'
+                el.style.background = 'rgba(0,121,255,0.04)'
               }}
               onMouseLeave={e => {
                 const el = e.currentTarget as HTMLAnchorElement

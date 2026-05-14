@@ -44,8 +44,8 @@ function LoginForm() {
     <div
       style={{
         background: '#ffffff',
-        borderRadius: '20px',
-        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+        borderRadius: '30px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
         border: '1px solid #e5e7eb',
         padding: '40px',
         width: '100%',
@@ -68,7 +68,7 @@ function LoginForm() {
           Willkommen zurück!
         </h1>
         <p style={{ fontSize: '15px', color: '#6b7280', margin: 0 }}>
-          Bitte melde dich an, um fortzufahren
+          Logge dich ein &amp; bringe deine Kunst auf die Straße.
         </p>
       </div>
 
@@ -218,7 +218,7 @@ function LoginForm() {
         }}
       >
         <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 16px 0' }}>
-          Noch kein Konto?
+          Du hast noch kein Konto?
         </p>
         <Link
           href="/register"
