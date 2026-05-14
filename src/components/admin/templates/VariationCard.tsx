@@ -32,7 +32,7 @@ const DEFAULT_VIEW: ViewData = {
 }
 
 export function VariationCard({ varId, variation, onChange, onRemove }: Props) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [open, setOpen] = useState(true)
 
   const set = <K extends keyof VariationData>(field: K, value: VariationData[K]) =>
     onChange({ ...variation, [field]: value })
@@ -51,78 +51,103 @@ export function VariationCard({ varId, variation, onChange, onRemove }: Props) {
     onChange({ ...variation, views: next })
   }
 
-  const viewCount = Object.keys(variation.views).length
-
   return (
-    <div className="border border-[#e5e7eb] rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 p-4 bg-white cursor-pointer" onClick={() => setCollapsed(c => !c)}>
+    <div className="rounded-2xl border-2 border-[#e5e7eb] overflow-hidden">
+      {/* Variation header — always visible */}
+      <div
+        className="flex items-center gap-4 px-5 py-4 bg-white cursor-pointer hover:bg-[#fafafa] transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        {/* Color swatch */}
         <div
-          className="w-8 h-8 rounded-full border-2 border-[#e5e7eb] flex-shrink-0"
-          style={{ background: variation.color }}
+          className="w-10 h-10 rounded-xl border-2 flex-shrink-0 shadow-sm"
+          style={{
+            background: variation.color,
+            borderColor: variation.color === '#ffffff' || variation.color === '#fff' ? '#e5e7eb' : variation.color,
+          }}
         />
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-[#1d1d1f] text-sm">{variation.name || 'Neue Variante'}</div>
-          <div className="text-xs text-[rgba(0,0,0,0.4)]">{viewCount} View{viewCount !== 1 ? 's' : ''} · AKD: {variation.akd_color || '—'}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[#1d1d1f]">{variation.name || 'Neue Variante'}</span>
+            {variation.is_default && (
+              <span className="text-xs bg-[#0079FF] text-white px-2 py-0.5 rounded-full font-medium">Standard</span>
+            )}
+            {variation.is_dark_shirt && (
+              <span className="text-xs bg-[#1d1d1f] text-white px-2 py-0.5 rounded-full">Dunkel</span>
+            )}
+          </div>
+          <div className="text-sm text-[rgba(0,0,0,0.4)] mt-0.5">
+            {variation.color} · {Object.keys(variation.views).length} View{Object.keys(variation.views).length !== 1 ? 's' : ''}
+            {variation.akd_color ? ` · AKD: ${variation.akd_color}` : ''}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {variation.is_default && (
-            <span className="text-xs bg-[#0079FF] text-white px-2 py-0.5 rounded-full">Standard</span>
-          )}
-          <button type="button" onClick={e => { e.stopPropagation(); onRemove() }} className="text-red-400 hover:text-red-600 text-xs px-2">✕</button>
-          <span className="text-[rgba(0,0,0,0.3)] text-sm">{collapsed ? '▼' : '▲'}</span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onRemove() }}
+            className="text-sm text-[rgba(0,0,0,0.3)] hover:text-red-500 transition-colors px-2 py-1"
+          >
+            Entfernen
+          </button>
+          <span className="text-[rgba(0,0,0,0.25)] text-lg">{open ? '▲' : '▼'}</span>
         </div>
       </div>
 
-      {!collapsed && (
-        <div className="p-4 space-y-4 bg-[#f9fafb] border-t border-[#e5e7eb]">
-          <div className="grid grid-cols-2 gap-3">
+      {open && (
+        <div className="border-t-2 border-[#e5e7eb] bg-[#f9fafb]">
+          {/* Variation settings */}
+          <div className="p-5 grid grid-cols-2 gap-4 sm:grid-cols-4 border-b border-[#e5e7eb]">
             <div>
-              <label className="block text-xs font-medium text-[rgba(0,0,0,0.6)] mb-1">Name</label>
+              <label className="block text-xs font-medium text-[rgba(0,0,0,0.5)] mb-1.5">Name</label>
               <input type="text" value={variation.name} onChange={e => set('name', e.target.value)} className="yprint-input text-sm" placeholder="z.B. White" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[rgba(0,0,0,0.6)] mb-1">AKD Farbname</label>
-              <input type="text" value={variation.akd_color} onChange={e => set('akd_color', e.target.value)} className="yprint-input text-sm" placeholder="z.B. White" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[rgba(0,0,0,0.6)] mb-1">Farbe (Hex)</label>
+              <label className="block text-xs font-medium text-[rgba(0,0,0,0.5)] mb-1.5">Farbe</label>
               <div className="flex items-center gap-2">
-                <input type="color" value={variation.color} onChange={e => set('color', e.target.value)} className="h-10 w-12 rounded border border-[#e5e7eb] cursor-pointer p-1" />
-                <input type="text" value={variation.color} onChange={e => set('color', e.target.value)} className="yprint-input flex-1 text-sm font-mono" placeholder="#ffffff" />
+                <input type="color" value={variation.color} onChange={e => set('color', e.target.value)} className="h-10 w-10 rounded-lg border border-[#e5e7eb] cursor-pointer p-1 flex-shrink-0" />
+                <input type="text" value={variation.color} onChange={e => set('color', e.target.value)} className="yprint-input flex-1 text-sm font-mono min-w-0" placeholder="#ffffff" />
               </div>
             </div>
-            <div className="flex flex-col gap-2 justify-center">
+            <div>
+              <label className="block text-xs font-medium text-[rgba(0,0,0,0.5)] mb-1.5">AKD-Farbname</label>
+              <input type="text" value={variation.akd_color} onChange={e => set('akd_color', e.target.value)} className="yprint-input text-sm" placeholder="z.B. White" />
+            </div>
+            <div className="flex flex-col gap-2 justify-center pt-4">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={variation.is_default} onChange={e => set('is_default', e.target.checked)} />
-                <span className="text-sm text-[rgba(0,0,0,0.7)]">Standard-Variante</span>
+                <input type="checkbox" checked={variation.is_default} onChange={e => set('is_default', e.target.checked)} className="w-4 h-4" />
+                <span className="text-sm text-[#1d1d1f]">Standard</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={variation.is_dark_shirt} onChange={e => set('is_dark_shirt', e.target.checked)} />
-                <span className="text-sm text-[rgba(0,0,0,0.7)]">Dunkles Shirt</span>
+                <input type="checkbox" checked={variation.is_dark_shirt} onChange={e => set('is_dark_shirt', e.target.checked)} className="w-4 h-4" />
+                <span className="text-sm text-[#1d1d1f]">Dunkles Shirt</span>
               </label>
             </div>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-[#1d1d1f]">Views</h4>
-              <button type="button" onClick={addView} className="text-sm text-[#0079FF] hover:underline">+ View hinzufügen</button>
+          {/* Views */}
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-[#1d1d1f]">
+                Ansichten ({Object.keys(variation.views).length})
+              </span>
+              <button type="button" onClick={addView} className="text-sm text-[#0079FF] hover:underline font-medium">
+                + Ansicht hinzufügen
+              </button>
             </div>
-            <div className="space-y-3">
-              {Object.entries(variation.views).map(([viewId, view]) => (
-                <ViewEditor
-                  key={viewId}
-                  viewId={viewId}
-                  view={view}
-                  onChange={v => updateView(viewId, v)}
-                  onRemove={() => removeView(viewId)}
-                />
-              ))}
-              {Object.keys(variation.views).length === 0 && (
-                <p className="text-sm text-[rgba(0,0,0,0.4)] italic">Kein View definiert.</p>
-              )}
-            </div>
+            {Object.entries(variation.views).map(([viewId, view]) => (
+              <ViewEditor
+                key={viewId}
+                viewId={viewId}
+                view={view}
+                onChange={v => updateView(viewId, v)}
+                onRemove={() => removeView(viewId)}
+              />
+            ))}
+            {Object.keys(variation.views).length === 0 && (
+              <div className="text-center py-6 text-sm text-[rgba(0,0,0,0.3)] border-2 border-dashed border-[#e5e7eb] rounded-xl">
+                Noch keine Ansicht — füge eine hinzu
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -47,25 +47,31 @@ export function VariationsEditor({ variations, onChange }: Props) {
   const count = Object.keys(variations).length
 
   return (
-    <div className="yprint-card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-[#1d1d1f]">Varianten ({count})</h2>
-        <button type="button" onClick={add} className="text-sm text-[#0079FF] hover:underline">+ Variante hinzufügen</button>
-      </div>
+    <div className="space-y-3">
+      {Object.entries(variations).map(([varId, variation]) => (
+        <VariationCard
+          key={varId}
+          varId={varId}
+          variation={variation}
+          onChange={v => update(varId, v)}
+          onRemove={() => remove(varId)}
+        />
+      ))}
+
       {count === 0 && (
-        <p className="text-sm text-[rgba(0,0,0,0.4)] italic">Noch keine Varianten definiert.</p>
+        <div className="text-center py-10 text-[rgba(0,0,0,0.3)] border-2 border-dashed border-[#e5e7eb] rounded-2xl">
+          <p className="text-base mb-1">Noch keine Farben / Varianten</p>
+          <p className="text-sm">Füge z.B. White und Black hinzu</p>
+        </div>
       )}
-      <div className="space-y-3">
-        {Object.entries(variations).map(([varId, variation]) => (
-          <VariationCard
-            key={varId}
-            varId={varId}
-            variation={variation}
-            onChange={v => update(varId, v)}
-            onRemove={() => remove(varId)}
-          />
-        ))}
-      </div>
+
+      <button
+        type="button"
+        onClick={add}
+        className="w-full py-3 text-sm font-medium text-[#0079FF] border-2 border-dashed border-[#0079FF]/30 rounded-2xl hover:border-[#0079FF]/60 hover:bg-[#0079FF]/5 transition-colors"
+      >
+        + Farbe / Variante hinzufügen
+      </button>
     </div>
   )
 }
