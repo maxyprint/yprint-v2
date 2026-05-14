@@ -59,6 +59,52 @@ function DesignerInner() {
       .catch(() => {})
   }, [urlTemplateId, urlDesignId, defaultTemplateId])
 
+  // React doesn't populate <template>.content — inject them via DOM so the bundle's
+  // template.content.cloneNode() works correctly.
+  useEffect(() => {
+    const defs: { id: string; html: string }[] = [
+      {
+        id: 'octo-print-designer-view-button-template',
+        html: '<button class="designer-view-button">View Name</button>',
+      },
+      {
+        id: 'octo-print-designer-library-image-template',
+        html: `<div class="library-image-item">
+          <img class="image-preview" src="" alt="" />
+          <button><img src="/designer/img/close.svg" alt="Close Icon" /></button>
+        </div>`,
+      },
+      {
+        id: 'octo-print-designer-library-item-template',
+        html: `<div class="library-item">
+          <img class="image-preview" src="" alt="" />
+          <span>Template Name</span>
+        </div>`,
+      },
+      {
+        id: 'designer-image-toolbar-template',
+        html: `<div class="designer-image-toolbar">
+          <button type="button" class="toolbar-btn center-image" title="Center Image">
+            <img src="/designer/img/center.svg" alt="Center" />
+          </button>
+          <div class="toolbar-dimension">
+            <input type="number" class="width-input" title="Width in pixels" placeholder="W" />
+            <span>×</span>
+            <input type="number" class="height-input" title="Height in pixels" placeholder="H" />
+            <span class="pixel-to-cm"></span>
+          </div>
+        </div>`,
+      },
+    ]
+    defs.forEach(({ id, html }) => {
+      document.getElementById(id)?.remove()
+      const tmpl = document.createElement('template')
+      tmpl.id = id
+      tmpl.innerHTML = html
+      document.body.appendChild(tmpl)
+    })
+  }, [])
+
   // Don't render scripts until config is set and (for new designs) a default template is resolved
   const readyToLoad = configSet && (urlDesignId || defaultTemplateId)
 
@@ -183,38 +229,6 @@ function DesignerInner() {
 
         <div className="toast-container" />
       </main>
-
-      {/* HTML <template> elements the bundle clones for dynamic rendering */}
-      <template id="octo-print-designer-view-button-template">
-        <button className="designer-view-button">View Name</button>
-      </template>
-      <template id="octo-print-designer-library-image-template">
-        <div className="library-image-item">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="image-preview" src="" alt="" />
-          <button><img src="/designer/img/close.svg" alt="Close Icon" /></button>
-        </div>
-      </template>
-      <template id="octo-print-designer-library-item-template">
-        <div className="library-item">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="image-preview" src="" alt="" />
-          <span>Template Name</span>
-        </div>
-      </template>
-      <template id="designer-image-toolbar-template">
-        <div className="designer-image-toolbar">
-          <button type="button" className="toolbar-btn center-image" title="Center Image">
-            <img src="/designer/img/center.svg" alt="Center" />
-          </button>
-          <div className="toolbar-dimension">
-            <input type="number" className="width-input" title="Width in pixels" placeholder="W" />
-            <span>×</span>
-            <input type="number" className="height-input" title="Height in pixels" placeholder="H" />
-            <span className="pixel-to-cm" />
-          </div>
-        </div>
-      </template>
 
       {/* Scripts: vendor → common (always) → designer (needs config + template) */}
       <Script

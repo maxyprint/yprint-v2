@@ -1,10 +1,9 @@
 /**
- * Seed script: Insert a demo "Shirt" template into Supabase.
+ * Seed script: Insert/update the demo "Shirt" template in Supabase.
+ * Run with:  NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/seed-templates.ts
  *
- * Run with:  npx tsx scripts/seed-templates.ts
- *
- * Zone values are calibrated for the 768×769 shirt mockup image from yprint.de.
- * Adjust printZone / safeZone after measuring the actual mockup.
+ * Image: /public/templates/shirt-white-front.png (600×1067 px, RGBA)
+ * Zones are calibrated for that image size.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -14,25 +13,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// ── Template mockup image ────────────────────────────────────────────────────
-// We use the yprint.de shirt image (768×769 px, nearly square).
-// Replace with Supabase Storage URL once images are uploaded.
-const SHIRT_FRONT_URL =
-  'https://yprint.de/wp-content/uploads/2025/02/kaan-freigestellt-front-Kopie-basics-2-768x769.webp'
+// Local image served from /public/templates/ — no CORS/hotlink issues
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://yprint-v2.vercel.app'
+const SHIRT_WHITE_FRONT = `${APP_URL}/templates/shirt-white-front.png`
 
-// ── Zone data (pixels, image is 768×769) ────────────────────────────────────
-// These are approximate – fine-tune in the admin panel once the designer loads.
-const FRONT_VIEW = {
+// Image is 600×1067 px. Zones in pixels:
+// - Shirt collar at ~y=280, hem at ~y=920, side seams at x≈90 and x≈510
+// - Print zone (front chest): ~x=180, y=310, w=240, h=260
+const FRONT_VIEW_WHITE = {
   name: 'Front',
-  image_url: SHIRT_FRONT_URL,
+  image_url: SHIRT_WHITE_FRONT,
   colorOverlayEnabled: false,
   overlayOpacity: 0,
-  // Area where elements are visible and safe to place
-  safeZone: { left: 175, top: 215, width: 420, height: 400 },
-  // Fabric.js image zone: position + scale for canvas background image
-  imageZone: { left: 0, top: 0, scaleX: 1, scaleY: 1, angle: 0 },
-  // Exact printable area for high-res PNG export
-  printZone: { left: 210, top: 230, width: 348, height: 360 },
+  safeZone:  { left: 120, top: 280, width: 360, height: 560 },
+  imageZone: { left: 0,   top: 0,   scaleX: 1, scaleY: 1, angle: 0 },
+  printZone: { left: 180, top: 310, width: 240, height: 260 },
+}
+
+// Black variation — same image with a dark overlay
+const FRONT_VIEW_BLACK = {
+  ...FRONT_VIEW_WHITE,
+  colorOverlayEnabled: true,
+  overlayOpacity: 0.85,
 }
 
 const template = {
@@ -45,11 +47,11 @@ const template = {
   base_price: 17.0,
   in_stock: true,
   sizes: [
-    { id: 'XS', name: 'XS', order: 1 },
-    { id: 'S',  name: 'S',  order: 2 },
-    { id: 'M',  name: 'M',  order: 3 },
-    { id: 'L',  name: 'L',  order: 4 },
-    { id: 'XL', name: 'XL', order: 5 },
+    { id: 'XS',  name: 'XS',  order: 1 },
+    { id: 'S',   name: 'S',   order: 2 },
+    { id: 'M',   name: 'M',   order: 3 },
+    { id: 'L',   name: 'L',   order: 4 },
+    { id: 'XL',  name: 'XL',  order: 5 },
     { id: 'XXL', name: 'XXL', order: 6 },
   ],
   pricing: {
@@ -67,9 +69,7 @@ const template = {
       color: '#ffffff',
       is_default: true,
       is_dark_shirt: false,
-      views: {
-        view_front: FRONT_VIEW,
-      },
+      views: { view_front: FRONT_VIEW_WHITE },
     },
     var_black: {
       id: 'var_black',
@@ -77,30 +77,19 @@ const template = {
       color: '#1a1a1a',
       is_default: false,
       is_dark_shirt: true,
-      views: {
-        view_front: {
-          ...FRONT_VIEW,
-          colorOverlayEnabled: true,
-          overlayOpacity: 0.35,
-        },
-      },
+      views: { view_front: FRONT_VIEW_BLACK },
     },
   },
 }
 
 async function seed() {
-  console.log('Inserting template:', template.name)
-
+  console.log('Upserting template:', template.name)
   const { data, error } = await supabase
     .from('design_templates')
     .upsert(template, { onConflict: 'slug' })
     .select('id, name')
 
-  if (error) {
-    console.error('Error:', error.message)
-    process.exit(1)
-  }
-
+  if (error) { console.error('Error:', error.message); process.exit(1) }
   console.log('Done:', data)
 }
 
