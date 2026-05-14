@@ -1,12 +1,29 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
+import { useState } from 'react'
 
 export default function AdminNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const { logout } = useAuthStore()
+  const [clearing, setClearing] = useState(false)
+  const [cleared, setCleared] = useState(false)
+
+  const clearCache = async () => {
+    setClearing(true)
+    setCleared(false)
+    try {
+      await fetch('/api/admin/revalidate', { method: 'POST' })
+      router.refresh()
+      setCleared(true)
+      setTimeout(() => setCleared(false), 2500)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   const links = [
     { href: '/admin', label: 'Dashboard' },
@@ -36,6 +53,17 @@ export default function AdminNav() {
             ))}
           </div>
           <div className="flex items-center gap-4">
+            <button
+              onClick={clearCache}
+              disabled={clearing}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
+                cleared
+                  ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                  : 'border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.5)] hover:text-white hover:border-[rgba(255,255,255,0.3)] disabled:opacity-40'
+              }`}
+            >
+              {clearing ? '…' : cleared ? 'Cache geleert ✓' : 'Cache leeren'}
+            </button>
             <Link href="/dashboard" className="text-sm text-[rgba(255,255,255,0.6)] hover:text-white transition-colors">
               Zur App
             </Link>
