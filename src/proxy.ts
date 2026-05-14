@@ -5,7 +5,7 @@ const PUBLIC_ROUTES = ['/', '/login', '/register', '/verify-email', '/reset-pass
 const AUTH_ROUTES = ['/login', '/register']
 const ADMIN_ROUTES = ['/admin']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -28,12 +28,10 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
-  // Redirect logged-in users away from auth pages
   if (user && AUTH_ROUTES.some(r => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // Protect app routes
   const isProtected = !PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith('/api'))
   if (isProtected && !user) {
     const redirectUrl = new URL('/login', request.url)
@@ -41,7 +39,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Admin routes: check role
   if (ADMIN_ROUTES.some(r => pathname.startsWith(r)) && user) {
     const role = user.user_metadata?.role || user.app_metadata?.role
     if (role !== 'admin') {
