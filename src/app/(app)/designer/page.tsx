@@ -26,7 +26,7 @@ function DesignerInner() {
   const urlTemplateId = searchParams.get('template_id') || ''
 
   const { user, accessToken } = useAuthStore()
-  const [vendorReady, setVendorReady] = useState(false)
+  const [fabricReady, setFabricReady] = useState(false)
   const [configSet, setConfigSet] = useState(false)
   const [defaultTemplateId, setDefaultTemplateId] = useState(urlTemplateId)
 
@@ -105,7 +105,6 @@ function DesignerInner() {
     })
   }, [])
 
-  // Don't render scripts until config is set and (for new designs) a default template is resolved
   const readyToLoad = configSet && (urlDesignId || defaultTemplateId)
 
   return (
@@ -230,16 +229,16 @@ function DesignerInner() {
         <div className="toast-container" />
       </main>
 
-      {/* Scripts: vendor → common (always) → designer (needs config + template) */}
+      {/* Load Fabric.js 5.3.0 globally (designer.bundle.js expects window.fabric) */}
       <Script
-        src="/designer/vendor.bundle.js"
+        src="/designer/fabric-5.3.0.min.js"
         strategy="afterInteractive"
-        onReady={() => setVendorReady(true)}
+        onReady={() => {
+          window.dispatchEvent(new CustomEvent('fabricGlobalReady', { detail: { source: 'cdn', version: '5.3.0' } }))
+          setFabricReady(true)
+        }}
       />
-      {vendorReady && (
-        <Script src="/designer/common.bundle.js" strategy="afterInteractive" />
-      )}
-      {vendorReady && readyToLoad && (
+      {fabricReady && readyToLoad && (
         <>
           <Script src="/designer/print-zone-png-generator.js" strategy="afterInteractive" />
           <Script src="/designer/designer.bundle.js" strategy="afterInteractive" />
