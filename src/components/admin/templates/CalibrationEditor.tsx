@@ -8,12 +8,15 @@ export interface CalibrationData {
   referenceSize: string
 }
 
+interface ZoneRect { left: number; top: number; width: number; height: number }
+
 interface Props {
   imageUrl: string
   calibration: CalibrationData
   onChange: (c: CalibrationData) => void
   onNaturalSize: (w: number, h: number) => void
   availableSizes: string[]
+  zoneOverlay?: { safe: ZoneRect; print: ZoneRect }
 }
 
 type DragTarget =
@@ -35,7 +38,7 @@ function clamp(v: number, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, v))
 }
 
-export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSize, availableSizes }: Props) {
+export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSize, availableSizes, zoneOverlay }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
   const calRef = useRef(calibration)
@@ -122,6 +125,34 @@ export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSi
           <div className="flex items-center justify-center h-64 text-sm text-[rgba(0,0,0,0.3)]">
             Bild hochladen um Kalibrierung zu starten
           </div>
+        )}
+
+        {imageUrl && zoneOverlay && (
+          <>
+            {/* Safe zone — dashed border overlay */}
+            <div style={{
+              position: 'absolute',
+              left:   `${zoneOverlay.safe.left}%`,
+              top:    `${zoneOverlay.safe.top}%`,
+              width:  `${zoneOverlay.safe.width}%`,
+              height: `${zoneOverlay.safe.height}%`,
+              border: '1.5px dashed rgba(0,121,255,0.35)',
+              borderRadius: 2,
+              pointerEvents: 'none',
+            }} />
+            {/* Print zone — filled overlay */}
+            <div style={{
+              position: 'absolute',
+              left:   `${zoneOverlay.print.left}%`,
+              top:    `${zoneOverlay.print.top}%`,
+              width:  `${zoneOverlay.print.width}%`,
+              height: `${zoneOverlay.print.height}%`,
+              background: 'rgba(0,121,255,0.12)',
+              border: '1.5px solid rgba(0,121,255,0.6)',
+              borderRadius: 2,
+              pointerEvents: 'none',
+            }} />
+          </>
         )}
 
         {imageUrl && (

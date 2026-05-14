@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { ZoneEditor, ZonePct } from './ZoneEditor'
 import { CalibrationEditor, CalibrationData } from './CalibrationEditor'
 import { MeasurementsData } from '@/lib/print/calcCoords'
 
@@ -17,6 +16,7 @@ export interface ViewData {
   calibration: CalibrationData
 }
 
+// Designer canvas fixed dimensions (from designer.bundle.js)
 const CANVAS_W = 616
 const CANVAS_H = 626
 
@@ -33,8 +33,16 @@ interface Props {
 }
 
 // All zone values stored as % of canvas (0–100).
-// left/top = CENTER position %. width/height = SIZE %.
-// This matches designer.bundle.js: rect.left = zone.left * canvas.width / 100, originX:'center'
+// left/top = CENTER position %, width/height = SIZE %.
+// Matching designer.bundle.js: rect.left = zone.left * canvas.width / 100, originX:'center'
+//
+// imageZone uses fill-width top-anchored scaling:
+//   scaleX = scaleY = CANVAS_W / naturalW
+//   imageZone.top = (naturalH * scale / 2) / CANVAS_H * 100
+// → image fills canvas width, collar at canvas top, hem may extend below canvas.
+//
+// Zone y-coordinates: canvas_y_pct = naturalY * CANVAS_W / (naturalW * CANVAS_H) * 100
+// Zone x-coordinates: canvas_x_pct = naturalX / naturalW * 100 (same as image %, fills width)
 function calcZones(
   cal: CalibrationData,
   measurements: MeasurementsData,
@@ -42,64 +50,47 @@ function calcZones(
   printHeightCm: number,
   naturalW: number,
   naturalH: number,
-): { safeZone: ViewData['safeZone']; printZone: ViewData['printZone'] } | null {
+): { imageZone: ViewData['imageZone']; safeZone: ViewData['safeZone']; printZone: ViewData['printZone'] } | null {
   const refM = measurements.per_size[cal.referenceSize]
   if (!refM) return null
   const shirtWidthPx = (cal.chestLine.x2 - cal.chestLine.x1) / 100 * naturalW
   if (shirtWidthPx <= 0) return null
 
-  const ratio = shirtWidthPx / refM.chest_cm  // natural-image px per cm
+  const ratio        = shirtWidthPx / refM.chest_cm
   const shirtLeftPx  = (cal.chestLine.x1 / 100) * naturalW
   const collarTopPx  = (cal.collarLine.y  / 100) * naturalH
-
   const printWidthPx  = printWidthCm  * ratio
   const printHeightPx = printHeightCm * ratio
   const shirtHeightPx = refM.length_cm * ratio
+  const printLeftPx  = shirtLeftPx + (refM.chest_cm - printWidthCm) / 2 * ratio
+  const printTopPx   = collarTopPx + (refM.rib_height_cm + measurements.print_y_offset_mm / 10) * ratio
 
-  const printLeftPx = shirtLeftPx + (refM.chest_cm - printWidthCm) / 2 * ratio
-  const printTopPx  = collarTopPx + (refM.rib_height_cm + measurements.print_y_offset_mm / 10) * ratio
-
-  const printCenterX = printLeftPx  + printWidthPx  / 2
-  const printCenterY = printTopPx   + printHeightPx / 2
-  const shirtCenterX = shirtLeftPx  + shirtWidthPx  / 2
-  const shirtCenterY = collarTopPx  + shirtHeightPx / 2
-
-  const r = (v: number) => Math.round(v * 10) / 10
+  const scale = CANVAS_W / naturalW
+  const r  = (v: number) => Math.round(v * 10)  / 10
+  const r3 = (v: number) => Math.round(v * 1000) / 1000
+  const xPct = (px: number) => r(px / naturalW * 100)
+  const yPct = (px: number) => r(px * scale / CANVAS_H * 100)
 
   return {
+    imageZone: {
+      left:  50,
+      top:   r((naturalH * scale / 2) / CANVAS_H * 100),
+      scaleX: r3(scale),
+      scaleY: r3(scale),
+      angle: 0,
+    },
     safeZone: {
-      left:   r((shirtCenterX / naturalW) * 100),
-      top:    r((shirtCenterY / naturalH) * 100),
-      width:  r((shirtWidthPx  / naturalW) * 100),
-      height: r((shirtHeightPx / naturalH) * 100),
+      left:   xPct(shirtLeftPx + shirtWidthPx  / 2),
+      top:    yPct(collarTopPx  + shirtHeightPx / 2),
+      width:  xPct(shirtWidthPx),
+      height: yPct(shirtHeightPx),
     },
     printZone: {
-      left:   r((printCenterX  / naturalW) * 100),
-      top:    r((printCenterY  / naturalH) * 100),
-      width:  r((printWidthPx  / naturalW) * 100),
-      height: r((printHeightPx / naturalH) * 100),
+      left:   xPct(printLeftPx + printWidthPx  / 2),
+      top:    yPct(printTopPx  + printHeightPx / 2),
+      width:  xPct(printWidthPx),
+      height: yPct(printHeightPx),
     },
-  }
-}
-
-// Stored format: left/top = CENTER as %, width/height = SIZE as %.
-// ZoneEditor CSS needs left-edge %, so toPct converts center→edge and fromPct converts back.
-function toPct(zone: { left: number; top: number; width: number; height: number }): ZonePct {
-  return {
-    left:   zone.left   - zone.width  / 2,
-    top:    zone.top    - zone.height / 2,
-    width:  zone.width,
-    height: zone.height,
-  }
-}
-
-function fromPct(pct: ZonePct): { left: number; top: number; width: number; height: number } {
-  const r = (v: number) => Math.round(v * 10) / 10
-  return {
-    left:   r(pct.left   + pct.width  / 2),
-    top:    r(pct.top    + pct.height / 2),
-    width:  r(pct.width),
-    height: r(pct.height),
   }
 }
 
@@ -109,24 +100,18 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
-  const set = <K extends keyof ViewData>(field: K, value: ViewData[K]) =>
-    onChange({ ...view, [field]: value })
-
   const applyCalc = useCallback((cal: CalibrationData, ns: { w: number; h: number } | null) => {
     if (!ns || !measurements) return
     const result = calcZones(cal, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
-    if (result) onChange({ ...view, calibration: cal, safeZone: result.safeZone, printZone: result.printZone })
-    else onChange({ ...view, calibration: cal })
+    if (result) {
+      onChange({ ...view, calibration: cal, imageZone: result.imageZone, safeZone: result.safeZone, printZone: result.printZone })
+    } else {
+      onChange({ ...view, calibration: cal })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measurements, printWidthCm, printHeightCm, view.safeZone, view.printZone])
+  }, [measurements, printWidthCm, printHeightCm, view])
 
-  const handleCalibrationChange = (cal: CalibrationData) => {
-    applyCalc(cal, naturalSize)
-  }
-
-  const handleRecalc = () => {
-    applyCalc(view.calibration, naturalSize)
-  }
+  const handleCalibrationChange = (cal: CalibrationData) => applyCalc(cal, naturalSize)
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -142,17 +127,28 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
 
       const img = new window.Image()
       img.onload = () => {
-        const scale = Math.min(CANVAS_W / img.naturalWidth, CANVAS_H / img.naturalHeight)
-        onChange({
-          ...view,
-          image_url: data.url,
-          imageZone: { left: 50, top: 50, scaleX: scale, scaleY: scale, angle: 0 },
-        })
-        setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight })
+        const scale = CANVAS_W / img.naturalWidth
+        const top = Math.round((img.naturalHeight * scale / 2) / CANVAS_H * 1000) / 10
+        const ns = { w: img.naturalWidth, h: img.naturalHeight }
+        setNaturalSize(ns)
+        const imageZone = {
+          left: 50,
+          top,
+          scaleX: Math.round(scale * 1000) / 1000,
+          scaleY: Math.round(scale * 1000) / 1000,
+          angle: 0 as const,
+        }
+        // If calibration is already set, recompute zones with new image size
+        const result = measurements
+          ? calcZones(view.calibration, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
+          : null
+        if (result) {
+          onChange({ ...view, image_url: data.url, imageZone: result.imageZone, safeZone: result.safeZone, printZone: result.printZone })
+        } else {
+          onChange({ ...view, image_url: data.url, imageZone })
+        }
       }
-      img.onerror = () => {
-        set('image_url', data.url)
-      }
+      img.onerror = () => onChange({ ...view, image_url: data.url })
       img.src = data.url
     } catch (err: any) {
       setUploadError(err.message)
@@ -162,22 +158,17 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
     }
   }
 
-  const safeZonePct  = toPct(view.safeZone)
-  const printZonePct = toPct(view.printZone)
-
-  const handleSafeChange  = (pct: ZonePct) => onChange({ ...view, safeZone:  fromPct(pct) })
-  const handlePrintChange = (pct: ZonePct) => onChange({ ...view, printZone: fromPct(pct) })
+  const set = <K extends keyof ViewData>(field: K, value: ViewData[K]) =>
+    onChange({ ...view, [field]: value })
 
   const availableSizes = measurements ? Object.keys(measurements.per_size) : []
   const calOk = (view.calibration.chestLine.x2 - view.calibration.chestLine.x1) > 0
-  const canRecalc = !!measurements && !!naturalSize && calOk
-  const recalcHint = !measurements
-    ? 'Maßtabelle fehlt (Section 4)'
-    : !naturalSize
-    ? 'Bild noch nicht geladen'
-    : !calOk
-    ? 'Kalibrierungslinien setzen'
-    : ''
+
+  // Zone overlays for CalibrationEditor (convert center-% to CSS left-edge %)
+  const sz = view.safeZone
+  const pz = view.printZone
+  const safeOverlay  = calOk ? { left: sz.left - sz.width  / 2, top: sz.top - sz.height / 2, width: sz.width,  height: sz.height  } : null
+  const printOverlay = calOk ? { left: pz.left - pz.width  / 2, top: pz.top - pz.height / 2, width: pz.width,  height: pz.height  } : null
 
   return (
     <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
@@ -238,7 +229,7 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
                 value={view.image_url}
                 onChange={e => set('image_url', e.target.value)}
                 className="yprint-input font-mono text-sm w-full"
-                placeholder="/templates/shirt-white-front.png"
+                placeholder="/api/template-assets/..."
               />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="text-sm text-[#0079FF] hover:underline disabled:opacity-50">
                 {uploading ? 'Wird hochgeladen…' : '↑ Bild hochladen (PNG, JPG, WebP)'}
@@ -267,13 +258,13 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
           )}
         </div>
 
-        {/* Calibration */}
+        {/* Calibration + zone preview */}
         <div>
           <div className="mb-3">
-            <p className="text-sm font-semibold text-[#1d1d1f]">Kalibrierung</p>
+            <p className="text-sm font-semibold text-[#1d1d1f]">Kalibrierung &amp; Zonenvorschau</p>
             <p className="text-xs text-[rgba(0,0,0,0.4)] mt-0.5">
               Ziehe den blauen Balken auf die Brustbreite des Shirts und den orangen Strich auf die Kragen-Unterkante.
-              Safe Zone und Print Zone berechnen sich automatisch.
+              Print Zone und Safe Zone werden automatisch berechnet und als Overlay dargestellt.
             </p>
           </div>
           <CalibrationEditor
@@ -282,39 +273,18 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
             onChange={handleCalibrationChange}
             onNaturalSize={(w, h) => setNaturalSize({ w, h })}
             availableSizes={availableSizes}
+            zoneOverlay={safeOverlay && printOverlay ? { safe: safeOverlay, print: printOverlay } : undefined}
           />
           {!measurements && (
             <p className="text-xs text-amber-500 mt-2">
               Maßtabelle noch nicht gesetzt (Section 4) — Zonen können erst berechnet werden wenn Maße vorhanden.
             </p>
           )}
-        </div>
-
-        {/* Zone editor — fine-tuning */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-semibold text-[#1d1d1f]">Zonenvorschau &amp; Feinabstimmung</p>
-              <p className="text-xs text-[rgba(0,0,0,0.4)] mt-0.5">Ziehe die Zonen für manuelle Korrekturen. Zonen werden mit dem Template gespeichert.</p>
-            </div>
-            <button
-              type="button"
-              onClick={handleRecalc}
-              disabled={!canRecalc}
-              title={recalcHint}
-              className="text-xs font-medium flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed text-[#0079FF] hover:underline disabled:no-underline"
-            >
-              ↺ Neu berechnen{recalcHint ? ` (${recalcHint})` : ''}
-            </button>
-          </div>
-          <ZoneEditor
-            imageUrl={view.image_url}
-            safeZone={safeZonePct}
-            printZone={printZonePct}
-            onSafeChange={handleSafeChange}
-            onPrintChange={handlePrintChange}
-            onNaturalSize={(w, h) => setNaturalSize({ w, h })}
-          />
+          {measurements && !calOk && (
+            <p className="text-xs text-[rgba(0,0,0,0.4)] mt-2">
+              Kalibrierungslinien setzen um Zonen zu berechnen.
+            </p>
+          )}
         </div>
       </div>
     </div>
