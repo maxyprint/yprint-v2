@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get('token')
@@ -54,65 +54,43 @@ export default function ResetPasswordPage() {
     }
   }
 
-  if (token) {
-    return (
-      <div className="yprint-card">
-        <h1 className="text-2xl font-bold text-[#1d1d1f] mb-2">Neues Passwort</h1>
-        <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">Wähle ein neues Passwort für dein Konto.</p>
-        <form onSubmit={handleSetNewPassword} className="space-y-4">
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Neues Passwort</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="yprint-input"
-              placeholder="Mindestens 8 Zeichen"
-            />
-          </div>
-          <div>
-            <label htmlFor="passwordConfirm" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Passwort wiederholen</label>
-            <input
-              id="passwordConfirm"
-              type="password"
-              value={passwordConfirm}
-              onChange={e => setPasswordConfirm(e.target.value)}
-              required
-              className="yprint-input"
-              placeholder="••••••••"
-            />
-          </div>
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>
-          )}
-          <button type="submit" disabled={loading} className="yprint-button yprint-button-primary w-full">
-            {loading ? 'Wird gespeichert…' : 'Passwort speichern'}
-          </button>
-        </form>
-      </div>
-    )
-  }
-
-  if (success) {
-    return (
-      <div className="yprint-card text-center">
-        <div className="w-16 h-16 bg-[#007aff]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-[#007aff]" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-          </svg>
+  if (token) return (
+    <div className="yprint-card">
+      <h1 className="text-2xl font-bold text-[#1d1d1f] mb-2">Neues Passwort</h1>
+      <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">Wähle ein neues Passwort für dein Konto.</p>
+      <form onSubmit={handleSetNewPassword} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Neues Passwort</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            required className="yprint-input" placeholder="Mindestens 8 Zeichen" />
         </div>
-        <h2 className="text-xl font-bold text-[#1d1d1f] mb-2">E-Mail gesendet</h2>
-        <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">
-          Falls ein Konto mit dieser E-Mail existiert, erhältst du einen Link zum Zurücksetzen deines Passworts.
-        </p>
-        <Link href="/login" className="yprint-button yprint-button-secondary">
-          Zurück zur Anmeldung
-        </Link>
+        <div>
+          <label className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Passwort wiederholen</label>
+          <input type="password" value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)}
+            required className="yprint-input" placeholder="••••••••" />
+        </div>
+        {error && <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{error}</div>}
+        <button type="submit" disabled={loading} className="yprint-button yprint-button-primary w-full">
+          {loading ? 'Wird gespeichert…' : 'Passwort speichern'}
+        </button>
+      </form>
+    </div>
+  )
+
+  if (success) return (
+    <div className="yprint-card text-center">
+      <div className="w-16 h-16 bg-[#007aff]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg className="w-8 h-8 text-[#007aff]" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+        </svg>
       </div>
-    )
-  }
+      <h2 className="text-xl font-bold text-[#1d1d1f] mb-2">E-Mail gesendet</h2>
+      <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">
+        Falls ein Konto mit dieser E-Mail existiert, erhältst du einen Link zum Zurücksetzen deines Passworts.
+      </p>
+      <Link href="/login" className="yprint-button yprint-button-secondary">Zurück zur Anmeldung</Link>
+    </div>
+  )
 
   return (
     <div className="yprint-card">
@@ -122,16 +100,9 @@ export default function ResetPasswordPage() {
       </p>
       <form onSubmit={handleRequestReset} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">E-Mail</label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            className="yprint-input"
-            placeholder="deine@email.de"
-          />
+          <label className="block text-sm font-medium text-[#1d1d1f] mb-1.5">E-Mail</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            required className="yprint-input" placeholder="deine@email.de" />
         </div>
         <button type="submit" disabled={loading} className="yprint-button yprint-button-primary w-full">
           {loading ? 'Wird gesendet…' : 'Link senden'}
@@ -143,5 +114,13 @@ export default function ResetPasswordPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="yprint-card h-48 animate-pulse" />}>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useCartStore } from '@/store/cart'
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const clearCart = useCartStore(s => s.clearCart)
   const [orderNumber, setOrderNumber] = useState<string | null>(null)
@@ -13,18 +13,12 @@ export default function CheckoutSuccessPage() {
 
   useEffect(() => {
     const paymentIntentId = searchParams.get('payment_intent')
-    if (!paymentIntentId) {
-      setLoading(false)
-      return
-    }
+    if (!paymentIntentId) { setLoading(false); return }
 
     fetch(`/api/payments/stripe/verify-return?payment_intent_id=${paymentIntentId}`)
       .then(r => r.json())
       .then(data => {
-        if (data.orderNumber) {
-          setOrderNumber(data.orderNumber)
-          clearCart()
-        }
+        if (data.orderNumber) { setOrderNumber(data.orderNumber); clearCart() }
       })
       .finally(() => setLoading(false))
   }, [searchParams, clearCart])
@@ -55,14 +49,22 @@ export default function CheckoutSuccessPage() {
           Du erhältst eine Bestätigung per E-Mail. Dein Design wird jetzt gedruckt!
         </p>
         <div className="flex flex-col gap-3">
-          <Link href="/orders" className="yprint-button yprint-button-primary">
-            Bestellungen ansehen
-          </Link>
-          <Link href="/dashboard" className="yprint-button yprint-button-secondary">
-            Zurück zu meinen Designs
-          </Link>
+          <Link href="/orders" className="yprint-button yprint-button-primary">Bestellungen ansehen</Link>
+          <Link href="/dashboard" className="yprint-button yprint-button-secondary">Zurück zu meinen Designs</Link>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin w-10 h-10 border-2 border-[#007aff] border-t-transparent rounded-full" />
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   )
 }
