@@ -89,8 +89,23 @@ export default function TemplateEditorPage() {
           const rawVariations = t.variations || {}
           const akdRaw = rawVariations._akd || {}
           const measurementsRaw = rawVariations._measurements || DEFAULT_MEASUREMENTS
+          const DEFAULT_CAL = { shirtLeftPct: 10, shirtTopPct: 5, shirtWidthPx: 0, referenceSize: 'M' }
+          const DEFAULT_VIEW_ZONE = { left: 10, top: 5, width: 480, height: 680 }
+          const DEFAULT_PRINT_ZONE = { left: 30, top: 29, width: 240, height: 260 }
           const variations = Object.fromEntries(
-            Object.entries(rawVariations).filter(([k]) => !k.startsWith('_'))
+            Object.entries(rawVariations)
+              .filter(([k]) => !k.startsWith('_'))
+              .map(([k, v]: [string, any]) => [k, {
+                ...v,
+                views: Object.fromEntries(
+                  Object.entries(v.views || {}).map(([vk, view]: [string, any]) => [vk, {
+                    ...view,
+                    safeZone:    view.safeZone   ?? DEFAULT_VIEW_ZONE,
+                    printZone:   view.printZone  ?? DEFAULT_PRINT_ZONE,
+                    calibration: view.calibration ?? DEFAULT_CAL,
+                  }])
+                ),
+              }])
           ) as Record<string, VariationData>
           setForm({
             name: t.name || '',
@@ -289,6 +304,9 @@ export default function TemplateEditorPage() {
         <VariationsEditor
           variations={form.variations}
           onChange={v => set('variations', v as Record<string, VariationData>)}
+          measurements={form.measurements.per_size && Object.keys(form.measurements.per_size).length > 0 ? form.measurements : null}
+          printWidthCm={form.physical_width_cm}
+          printHeightCm={form.physical_height_cm}
         />
       </Section>
 

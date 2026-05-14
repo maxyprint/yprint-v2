@@ -13,6 +13,7 @@ interface Props {
   imageUrl: string
   safeZone: ZonePct
   printZone: ZonePct
+  readOnly?: boolean
   onSafeChange: (z: ZonePct) => void
   onPrintChange: (z: ZonePct) => void
   onNaturalSize: (w: number, h: number) => void
@@ -35,7 +36,7 @@ function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v))
 }
 
-const MIN = 4 // minimum zone size in %
+const MIN = 4
 
 function applyDrag(rect: ZonePct, handle: Handle, dxPct: number, dyPct: number): ZonePct {
   let { left, top, width, height } = rect
@@ -100,13 +101,14 @@ const HANDLES: { key: Handle; style: React.CSSProperties; cursor: string }[] = [
 
 interface ZoneOverlayProps {
   zone: ZonePct
-  color: string           // css color for border / fill tint
+  color: string
   label: string
   dashed?: boolean
+  readOnly?: boolean
   onDragStart: (handle: Handle, e: React.MouseEvent) => void
 }
 
-function ZoneOverlay({ zone, color, label, dashed, onDragStart }: ZoneOverlayProps) {
+function ZoneOverlay({ zone, color, label, dashed, readOnly, onDragStart }: ZoneOverlayProps) {
   return (
     <div
       style={{
@@ -118,12 +120,11 @@ function ZoneOverlay({ zone, color, label, dashed, onDragStart }: ZoneOverlayPro
         border: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
         background: `${color}18`,
         boxSizing: 'border-box',
-        cursor: 'move',
+        cursor: readOnly ? 'default' : 'move',
         userSelect: 'none',
       }}
-      onMouseDown={e => onDragStart('move', e)}
+      onMouseDown={readOnly ? undefined : e => onDragStart('move', e)}
     >
-      {/* Label */}
       <span style={{
         position: 'absolute',
         top: 4,
@@ -140,8 +141,7 @@ function ZoneOverlay({ zone, color, label, dashed, onDragStart }: ZoneOverlayPro
         {label}
       </span>
 
-      {/* Handles */}
-      {HANDLES.map(({ key, style, cursor }) => (
+      {!readOnly && HANDLES.map(({ key, style, cursor }) => (
         <div
           key={key}
           style={{
@@ -161,10 +161,9 @@ function ZoneOverlay({ zone, color, label, dashed, onDragStart }: ZoneOverlayPro
   )
 }
 
-export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrintChange, onNaturalSize }: Props) {
+export function ZoneEditor({ imageUrl, safeZone, printZone, readOnly, onSafeChange, onPrintChange, onNaturalSize }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<Drag | null>(null)
-  // Keep latest callbacks and zones in refs so the stable event listener can access them
   const safeRef  = useRef(safeZone)
   const printRef = useRef(printZone)
   const onSafeRef  = useRef(onSafeChange)
@@ -176,6 +175,7 @@ export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrin
   useEffect(() => { onPrintRef.current = onPrintChange }, [onPrintChange])
 
   useEffect(() => {
+    if (readOnly) return
     const onMove = (e: MouseEvent) => {
       const drag = dragRef.current
       if (!drag) return
@@ -192,9 +192,10 @@ export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrin
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, []) // mount once — callbacks accessed via refs
+  }, [readOnly])
 
   const startDrag = (zone: ZoneKey, handle: Handle, e: React.MouseEvent) => {
+    if (readOnly) return
     e.preventDefault()
     e.stopPropagation()
     const container = containerRef.current
@@ -217,10 +218,9 @@ export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrin
 
   return (
     <div className="space-y-2">
-      {/* Image + overlays */}
       <div
         ref={containerRef}
-        className="relative w-full overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] select-none"
+        className="relative w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] select-none"
         style={{ cursor: 'default' }}
       >
         {imageUrl ? (
@@ -228,7 +228,7 @@ export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrin
           <img
             src={imageUrl}
             alt=""
-            className="w-full h-auto block pointer-events-none"
+            className="w-full h-auto block pointer-events-none rounded-xl"
             onLoad={handleImageLoad}
             draggable={false}
           />
@@ -239,34 +239,38 @@ export function ZoneEditor({ imageUrl, safeZone, printZone, onSafeChange, onPrin
         )}
 
         {imageUrl && (
-          <>
-            <ZoneOverlay
-              zone={safeZone}
-              color="#0079FF"
-              label="Safe Zone"
-              onDragStart={(h, e) => startDrag('safe', h, e)}
-            />
-            <ZoneOverlay
-              zone={printZone}
-              color="#f59e0b"
-              label="Print Zone"
-              dashed
-              onDragStart={(h, e) => startDrag('print', h, e)}
-            />
-          </>
+          <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+            <div className="relative w-full h-full pointer-events-auto">
+              <ZoneOverlay
+                zone={safeZone}
+                color="#0079FF"
+                label="Safe Zone"
+                readOnly={readOnly}
+                onDragStart={(h, e) => startDrag('safe', h, e)}
+              />
+              <ZoneOverlay
+                zone={printZone}
+                color="#f59e0b"
+                label="Print Zone"
+                dashed
+                readOnly={readOnly}
+                onDragStart={(h, e) => startDrag('print', h, e)}
+              />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Legend */}
       <div className="flex items-center gap-4 px-1">
         <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
           <div className="w-4 h-3 rounded-sm border-2 border-solid border-[#0079FF] bg-[#0079FF]/10" />
-          Safe Zone — Designbereich
+          Safe Zone
         </div>
         <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
           <div className="w-4 h-3 rounded-sm border-2 border-dashed border-[#f59e0b] bg-[#f59e0b]/10" />
-          Print Zone — Vorschaurahmen
+          Print Zone
         </div>
+        {readOnly && <span className="text-xs text-[rgba(0,0,0,0.35)] ml-auto">Automatisch berechnet</span>}
       </div>
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ViewEditor, ViewData } from './ViewEditor'
+import { MeasurementsData } from '@/lib/print/calcCoords'
 
 export interface VariationData {
   id: string
@@ -18,20 +19,24 @@ interface Props {
   variation: VariationData
   onChange: (v: VariationData) => void
   onRemove: () => void
+  measurements: MeasurementsData | null
+  printWidthCm: number
+  printHeightCm: number
 }
 
 const DEFAULT_VIEW: ViewData = {
   name: 'Front',
-  image_url: '/templates/shirt-white-front.png',
+  image_url: '',
   colorOverlayEnabled: false,
   overlayOpacity: 0,
   akd_position: 'front',
-  safeZone: { left: 20, top: 26, width: 360, height: 560 },
+  safeZone: { left: 10, top: 5, width: 480, height: 680 },
   imageZone: { left: 0, top: 0, scaleX: 1, scaleY: 1, angle: 0 },
-  printZone: { left: 30, top: 29, width: 240, height: 260, offsetX_mm: 55, offsetY_mm: 75, width_mm: 120, height_mm: 130 },
+  printZone: { left: 30, top: 29, width: 240, height: 260 },
+  calibration: { shirtLeftPct: 10, shirtTopPct: 5, shirtWidthPx: 0, referenceSize: 'M' },
 }
 
-export function VariationCard({ varId, variation, onChange, onRemove }: Props) {
+export function VariationCard({ varId, variation, onChange, onRemove, measurements, printWidthCm, printHeightCm }: Props) {
   const [open, setOpen] = useState(true)
 
   const set = <K extends keyof VariationData>(field: K, value: VariationData[K]) =>
@@ -141,6 +146,9 @@ export function VariationCard({ varId, variation, onChange, onRemove }: Props) {
                 view={view}
                 onChange={v => updateView(viewId, v)}
                 onRemove={() => removeView(viewId)}
+                measurements={measurements}
+                printWidthCm={printWidthCm}
+                printHeightCm={printHeightCm}
               />
             ))}
             {Object.keys(variation.views).length === 0 && (

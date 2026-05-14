@@ -2,10 +2,14 @@
 
 import { VariationCard, VariationData } from './VariationCard'
 import { ViewData } from './ViewEditor'
+import { MeasurementsData } from '@/lib/print/calcCoords'
 
 interface Props {
   variations: Record<string, VariationData>
   onChange: (v: Record<string, VariationData>) => void
+  measurements: MeasurementsData | null
+  printWidthCm: number
+  printHeightCm: number
 }
 
 const DEFAULT_VARIATION: VariationData = {
@@ -18,18 +22,19 @@ const DEFAULT_VARIATION: VariationData = {
   views: {
     view_front: {
       name: 'Front',
-      image_url: '/templates/shirt-white-front.png',
+      image_url: '',
       colorOverlayEnabled: false,
       overlayOpacity: 0,
       akd_position: 'front',
-      safeZone: { left: 20, top: 26, width: 360, height: 560 },
+      safeZone: { left: 10, top: 5, width: 480, height: 680 },
       imageZone: { left: 0, top: 0, scaleX: 1, scaleY: 1, angle: 0 },
-      printZone: { left: 30, top: 29, width: 240, height: 260, offsetX_mm: 55, offsetY_mm: 75, width_mm: 120, height_mm: 130 },
+      printZone: { left: 30, top: 29, width: 240, height: 260 },
+      calibration: { shirtLeftPct: 10, shirtTopPct: 5, shirtWidthPx: 0, referenceSize: 'M' },
     } as ViewData,
   },
 }
 
-export function VariationsEditor({ variations, onChange }: Props) {
+export function VariationsEditor({ variations, onChange, measurements, printWidthCm, printHeightCm }: Props) {
   const add = () => {
     const id = `var_${Date.now()}`
     onChange({ ...variations, [id]: { ...DEFAULT_VARIATION, id } })
@@ -55,6 +60,9 @@ export function VariationsEditor({ variations, onChange }: Props) {
           variation={variation}
           onChange={v => update(varId, v)}
           onRemove={() => remove(varId)}
+          measurements={measurements}
+          printWidthCm={printWidthCm}
+          printHeightCm={printHeightCm}
         />
       ))}
 
