@@ -19,6 +19,8 @@ function LoginForm() {
   )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
 
   const verified = searchParams.get('verified')
   const reset = searchParams.get('reset')
@@ -27,14 +29,35 @@ function LoginForm() {
     e.preventDefault()
     if (!turnstileToken) { setError('Bitte bestätige, dass du kein Bot bist.'); return }
     setError(null)
+    setUnverifiedEmail(null)
     setLoading(true)
     try {
       await login(email, password, turnstileToken)
       router.push('/dashboard')
     } catch (err: any) {
-      setError(err.message || 'Anmeldung fehlgeschlagen.')
+      if (err.message === 'email_not_confirmed') {
+        setUnverifiedEmail(email)
+      } else {
+        setError(err.message || 'Anmeldung fehlgeschlagen.')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    if (!unverifiedEmail || resendStatus === 'sending') return
+    setResendStatus('sending')
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: unverifiedEmail }),
+      })
+      const data = await res.json()
+      setResendStatus(data.error ? 'error' : 'sent')
+    } catch {
+      setResendStatus('error')
     }
   }
 
@@ -195,6 +218,49 @@ function LoginForm() {
             }}
           >
             {error}
+          </div>
+        )}
+
+        {/* Unverified email banner */}
+        {unverifiedEmail && (
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: '8px',
+              background: '#fffbeb',
+              border: '1px solid #fcd34d',
+              marginBottom: '16px',
+            }}
+          >
+            <p style={{ fontSize: '14px', color: '#92400e', margin: '0 0 10px 0', fontWeight: 600 }}>
+              E-Mail-Adresse noch nicht bestätigt
+            </p>
+            <p style={{ fontSize: '13px', color: '#78350f', margin: '0 0 12px 0' }}>
+              Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest. Schau in deinen Posteingang (und Spam-Ordner).
+            </p>
+            {resendStatus === 'sent' ? (
+              <p style={{ fontSize: '13px', color: '#166534', margin: 0, fontWeight: 500 }}>
+                Bestätigungsmail wurde erneut gesendet.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendStatus === 'sending'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  fontSize: '13px',
+                  color: '#0079FF',
+                  cursor: resendStatus === 'sending' ? 'default' : 'pointer',
+                  fontWeight: 600,
+                  textDecoration: 'underline',
+                }}
+              >
+                {resendStatus === 'sending' ? 'Wird gesendet…' : resendStatus === 'error' ? 'Fehler – erneut versuchen' : 'Bestätigungsmail erneut senden'}
+              </button>
+            )}
           </div>
         )}
 

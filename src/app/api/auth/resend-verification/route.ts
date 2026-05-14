@@ -1,13 +1,37 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendVerificationEmail } from '@/lib/email/resend'
 
 export async function POST(request: Request) {
-  const { email } = await request.json()
-  if (!email) return NextResponse.json({ error: 'E-Mail fehlt.' }, { status: 400 })
+  let body: { email?: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-  const supabase = await createClient()
-  await supabase.auth.resend({ type: 'signup', email })
+  const { email } = body
+  if (!email) {
+    return NextResponse.json({ error: 'E-Mail erforderlich' }, { status: 400 })
+  }
 
-  // Always return success to prevent email enumeration
+  const supabase = createAdminClient()
+
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email` },
+  })
+
+  if (linkError || !linkData?.properties?.action_link) {
+    console.error('[ResendVerification] generateLink error:', linkError?.message)
+    // Return success regardless to prevent email enumeration
+    return NextResponse.json({ success: true })
+  }
+
+  await sendVerificationEmail(email, linkData.properties.action_link).catch(err => {
+    console.error('[ResendVerification] Email send error:', err?.message ?? err)
+  })
+
   return NextResponse.json({ success: true })
 }

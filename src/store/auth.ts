@@ -55,7 +55,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email, password, turnstileToken) => {
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw new Error('E-Mail oder Passwort falsch')
+    if (error) {
+      if ((error as any).code === 'email_not_confirmed' || error.message === 'Email not confirmed') throw new Error('email_not_confirmed')
+      throw new Error('E-Mail oder Passwort falsch')
+    }
   },
 
   logout: async () => {

@@ -1,73 +1,96 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
-function VerifyEmailContent() {
-  const searchParams = useSearchParams()
+export default function VerifyEmailPage() {
   const router = useRouter()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const tokenHash = searchParams.get('token_hash') || searchParams.get('token')
-    if (!tokenHash) { setStatus('error'); setError('Ungültiger Bestätigungslink.'); return }
+    // Supabase sends tokens as URL hash fragment: #access_token=...&refresh_token=...&type=signup
+    const hash = window.location.hash.substring(1) // strip leading #
+    if (!hash) {
+      setStatus('error')
+      setError('Ungültiger Bestätigungslink.')
+      return
+    }
 
-    fetch('/api/auth/verify-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokenHash }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setStatus('error'); setError(data.error) }
-        else { setStatus('success'); setTimeout(() => router.push('/login?verified=1'), 2000) }
+    const params = new URLSearchParams(hash)
+    const type = params.get('type')
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if ((type !== 'signup' && type !== 'magiclink') || !accessToken || !refreshToken) {
+      setStatus('error')
+      setError('Ungültiger oder abgelaufener Bestätigungslink.')
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error: sessionError }) => {
+        if (sessionError) {
+          setStatus('error')
+          setError('Bestätigung fehlgeschlagen. Der Link ist möglicherweise abgelaufen.')
+        } else {
+          setStatus('success')
+          // Sign out after confirming — user should log in explicitly
+          supabase.auth.signOut().then(() => {
+            setTimeout(() => router.push('/login?verified=1'), 2000)
+          })
+        }
       })
-      .catch(() => { setStatus('error'); setError('Ein Fehler ist aufgetreten.') })
-  }, [searchParams, router])
+  }, [router])
 
   if (status === 'verifying') return (
-    <div className="yprint-card text-center">
-      <div className="animate-spin w-10 h-10 border-2 border-[#007aff] border-t-transparent rounded-full mx-auto mb-4" />
-      <p className="text-[rgba(0,0,0,0.6)]">E-Mail wird bestätigt…</p>
+    <div style={cardStyle}>
+      <div style={{ width: 40, height: 40, border: '3px solid #0079FF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <p style={{ color: '#6b7280', margin: 0 }}>E-Mail wird bestätigt…</p>
     </div>
   )
 
   if (status === 'success') return (
-    <div className="yprint-card text-center">
-      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+    <div style={{ ...cardStyle, textAlign: 'center' }}>
+      <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <svg width="32" height="32" fill="none" stroke="#16a34a" strokeWidth="1.5" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
         </svg>
       </div>
-      <h2 className="text-xl font-bold text-[#1d1d1f] mb-2">E-Mail bestätigt!</h2>
-      <p className="text-[rgba(0,0,0,0.6)] text-sm">Du wirst zur Anmeldung weitergeleitet…</p>
+      <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0' }}>E-Mail bestätigt!</h2>
+      <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Du wirst zur Anmeldung weitergeleitet…</p>
     </div>
   )
 
   return (
-    <div className="yprint-card text-center">
-      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+    <div style={{ ...cardStyle, textAlign: 'center' }}>
+      <div style={{ width: 64, height: 64, background: '#fef2f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <svg width="32" height="32" fill="none" stroke="#dc2626" strokeWidth="1.5" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
         </svg>
       </div>
-      <h2 className="text-xl font-bold text-[#1d1d1f] mb-2">Bestätigung fehlgeschlagen</h2>
-      <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">{error}</p>
-      <Link href="/login" className="yprint-button yprint-button-primary">Zur Anmeldung</Link>
+      <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0' }}>Bestätigung fehlgeschlagen</h2>
+      <p style={{ color: '#6b7280', fontSize: '14px', margin: '0 0 24px 0' }}>{error}</p>
+      <Link href="/login" className="yprint-button yprint-button-primary" style={{ textDecoration: 'none' }}>
+        Zur Anmeldung
+      </Link>
     </div>
   )
 }
 
-export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={
-      <div className="yprint-card text-center">
-        <div className="animate-spin w-10 h-10 border-2 border-[#007aff] border-t-transparent rounded-full mx-auto" />
-      </div>
-    }>
-      <VerifyEmailContent />
-    </Suspense>
-  )
+const cardStyle: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: '30px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+  border: '1px solid #e5e7eb',
+  padding: '40px',
+  width: '100%',
+  maxWidth: '420px',
+  boxSizing: 'border-box',
+  textAlign: 'center',
+  fontFamily: "'Inter', 'Roboto', sans-serif",
 }

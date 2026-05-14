@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   })
 
   if (error) {
-    if (error.message.includes('already registered')) {
+    if ((error as any).code === 'user_already_exists' || error.message.includes('already registered')) {
       return NextResponse.json({ error: 'Diese E-Mail-Adresse ist bereits registriert' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 400 })
