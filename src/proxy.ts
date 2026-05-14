@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (ADMIN_ROUTES.some(r => pathname.startsWith(r)) && user) {
-    const role = user.user_metadata?.role || user.app_metadata?.role
+    const role = user.app_metadata?.role || user.user_metadata?.role
     if (role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
