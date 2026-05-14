@@ -100,8 +100,12 @@ async function handleGetTemplates() {
   if (error) return NextResponse.json({ success: false, data: error.message }, { status: 500 })
 
   // Transform to format Designer.js expects: { "template_id": { id, name, variations, ... } }
+  // Filter out internal config keys (prefixed with _) from variations before sending to designer
   const result: Record<string, unknown> = {}
   for (const t of data ?? []) {
+    const variations = Object.fromEntries(
+      Object.entries(t.variations ?? {}).filter(([k]) => !k.startsWith('_'))
+    )
     result[t.id] = {
       id: t.id,
       name: t.name,
@@ -109,7 +113,7 @@ async function handleGetTemplates() {
       physical_width_cm: t.physical_width_cm,
       physical_height_cm: t.physical_height_cm,
       sizes: t.sizes,
-      variations: t.variations,
+      variations,
       base_price: t.base_price,
       pricing: t.pricing,
       in_stock: t.in_stock,

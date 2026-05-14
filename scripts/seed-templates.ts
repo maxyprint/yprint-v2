@@ -4,6 +4,16 @@
  *
  * Image: /public/templates/shirt-white-front.png (600×1067 px, RGBA)
  * Zones are calibrated for that image size.
+ *
+ * Zone format:
+ *   left/top   = PERCENT (0-100) of canvas dimensions
+ *   width/height = PIXELS on canvas
+ *   offsetX/Y, width_mm/height_mm = millimeters for AKD print API
+ *
+ * Physical print area: 30cm wide × 40cm tall
+ * Print zone (front chest): starts at x=180px (30%), y=310px (29%), size 240×260px on a 600px canvas
+ * mm conversion: printZone.width / 600 * 300mm ≈ 120mm wide, 130mm tall
+ * Offset from top-left of shirt: ~55mm from left edge, ~75mm from top
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -13,25 +23,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-// Local image served from /public/templates/ — no CORS/hotlink issues
-// Use relative URL — works on any deployment, avoids cross-origin CORS for fabric.Image.fromURL
 const SHIRT_WHITE_FRONT = '/templates/shirt-white-front.png'
 
-// Image is 600×1067 px. Zone format: left/top = PERCENT (0-100), width/height = PIXELS
-// - Shirt collar at ~y=280 (26% of 1067), hem at ~y=920, side seams at x≈90 and x≈510
-// - Safe zone starts at x=120 (20% of 600), y=280 (26% of 1067)
-// - Print zone (front chest): x=180 (30%), y=310 (29%), w=240px, h=260px
 const FRONT_VIEW_WHITE = {
   name: 'Front',
   image_url: SHIRT_WHITE_FRONT,
   colorOverlayEnabled: false,
   overlayOpacity: 0,
-  safeZone:  { left: 20,  top: 26, width: 360, height: 560 },
-  imageZone: { left: 0,   top: 0,  scaleX: 1, scaleY: 1, angle: 0 },
-  printZone: { left: 30,  top: 29, width: 240, height: 260 },
+  safeZone:  { left: 20, top: 26, width: 360, height: 560 },
+  imageZone: { left: 0,  top: 0,  scaleX: 1, scaleY: 1, angle: 0 },
+  printZone: {
+    left: 30, top: 29, width: 240, height: 260,
+    // AKD print API coordinates (mm), relative to garment top-left
+    offsetX_mm: 55.0,
+    offsetY_mm: 75.0,
+    width_mm: 120.0,
+    height_mm: 130.0,
+  },
+  // Allesklardruck position identifier
+  akd_position: 'front',
 }
 
-// Black variation — same image with a dark overlay
 const FRONT_VIEW_BLACK = {
   ...FRONT_VIEW_WHITE,
   colorOverlayEnabled: true,
@@ -64,10 +76,18 @@ const template = {
     XXL: { base: 20.0 },
   },
   variations: {
+    // AKD product config — filtered out before sending to designer.bundle.js
+    _akd: {
+      product_type: 'TSHIRT',
+      manufacturer: 'yprint',
+      series: 'SS25',
+      print_method: 'DTG',
+    },
     var_white: {
       id: 'var_white',
       name: 'White',
       color: '#ffffff',
+      akd_color: 'White',
       is_default: true,
       is_dark_shirt: false,
       views: { view_front: FRONT_VIEW_WHITE },
@@ -76,6 +96,7 @@ const template = {
       id: 'var_black',
       name: 'Black',
       color: '#1a1a1a',
+      akd_color: 'Black',
       is_default: false,
       is_dark_shirt: true,
       views: { view_front: FRONT_VIEW_BLACK },

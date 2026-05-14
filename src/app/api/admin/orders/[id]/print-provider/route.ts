@@ -2,15 +2,45 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const AKD_API_URL = 'https://api.allesklardruck.de/order'
+
+interface AkdPrint {
+  position: string
+  file_url: string
+  offsetX: number
+  offsetY: number
+  width: number
+  height: number
+}
+
+interface AkdItem {
+  product_type: string
+  manufacturer: string
+  series: string
+  color: string
+  size: string
+  quantity: number
+  print_method: string
+  prints: AkdPrint[]
+}
+
+interface AkdPayload {
+  order_id: string
+  shipping_address: {
+    name: string
+    street: string
+    zip: string
+    city: string
+    country: string
+    company?: string
+  }
+  items: AkdItem[]
+}
+
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { user, error } = await requireAdmin()
   if (error || !user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-  const supabase = createAdminClient()
-  const { data: order, error: orderError } = await supabase
-    .from('orders').select('*, order_items(*)').eq('id', id).single()
-  if (orderError || !order) return NextResponse.json({ error: 'Bestellung nicht gefunden.' }, { status: 404 })
 
   const APP_ID = process.env.ALLESKLARDRUCK_APP_ID
   const API_KEY = process.env.ALLESKLARDRUCK_API_KEY
@@ -18,39 +48,127 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return NextResponse.json({ error: 'AllesKlarDruck API nicht konfiguriert.' }, { status: 500 })
   }
 
-  const payload = {
-    order_id: order.order_number,
-    shipping_address: order.shipping_address,
-    items: order.order_items.map((item: any) => ({
-      template_id: item.template_id,
-      variation_id: item.variation_id,
-      size: item.size,
-      quantity: item.quantity,
-      print_file_url: item.print_png_url,
-    })),
+  const supabase = createAdminClient()
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('id', id)
+    .single()
+  if (orderError || !order) {
+    return NextResponse.json({ error: 'Bestellung nicht gefunden.' }, { status: 404 })
   }
 
-  const response = await fetch('https://api.allesklardruck.de/v1/orders', {
+  const addr = order.shipping_address as Record<string, string> | null
+  if (!addr) {
+    return NextResponse.json({ error: 'Lieferadresse fehlt.' }, { status: 400 })
+  }
+
+  const items: AkdItem[] = []
+
+  for (const item of order.order_items as any[]) {
+    // Load template to get AKD product config + variations
+    const { data: template } = await supabase
+      .from('design_templates')
+      .select('variations')
+      .eq('id', item.template_id)
+      .single()
+
+    if (!template) {
+      return NextResponse.json({ error: `Template ${item.template_id} nicht gefunden.` }, { status: 400 })
+    }
+
+    const variations = template.variations as Record<string, any>
+    // AKD config stored under _akd key (filtered from designer responses)
+    const akdConfig = variations._akd || {}
+
+    // Resolve variation → AKD color + views
+    const variation = variations[item.variation_id]
+    if (!variation) {
+      return NextResponse.json({ error: `Variation ${item.variation_id} nicht gefunden.` }, { status: 400 })
+    }
+
+    // Load design PNGs for this order item's design
+    const { data: pngs } = await supabase
+      .from('design_pngs')
+      .select('view_id, public_url')
+      .eq('design_id', item.design_id)
+
+    const pngByView = Object.fromEntries((pngs ?? []).map((p: any) => [p.view_id, p.public_url]))
+
+    // Build prints array from all views that have a PNG
+    const prints: AkdPrint[] = []
+    for (const [viewId, view] of Object.entries(variation.views as Record<string, any>)) {
+      const fileUrl = pngByView[viewId]
+      if (!fileUrl) continue
+
+      const pz = view.printZone || {}
+      prints.push({
+        position: view.akd_position || 'front',
+        file_url: fileUrl,
+        offsetX: pz.offsetX_mm ?? 0,
+        offsetY: pz.offsetY_mm ?? 0,
+        width: pz.width_mm ?? 120,
+        height: pz.height_mm ?? 130,
+      })
+    }
+
+    if (prints.length === 0) {
+      return NextResponse.json({ error: `Keine Print-PNG für Design ${item.design_id} vorhanden.` }, { status: 400 })
+    }
+
+    items.push({
+      product_type: akdConfig.product_type || 'TSHIRT',
+      manufacturer: akdConfig.manufacturer || 'yprint',
+      series: akdConfig.series || 'SS25',
+      color: variation.akd_color || variation.name,
+      size: item.size,
+      quantity: item.quantity,
+      print_method: akdConfig.print_method || 'DTG',
+      prints,
+    })
+  }
+
+  const payload: AkdPayload = {
+    order_id: order.order_number,
+    shipping_address: {
+      name: [addr.first_name, addr.last_name].filter(Boolean).join(' '),
+      street: [addr.street, addr.street_nr].filter(Boolean).join(' '),
+      zip: addr.zip,
+      city: addr.city,
+      country: addr.country || 'DE',
+      ...(addr.company ? { company: addr.company } : {}),
+    },
+    items,
+  }
+
+  const response = await fetch(AKD_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-App-ID': APP_ID,
-      'X-API-Key': API_KEY,
+      'X-App-Id': APP_ID,
+      'X-Api-Key': API_KEY,
     },
     body: JSON.stringify(payload),
   })
 
-  const result = await response.json()
+  const result = await response.json().catch(() => ({ message: 'Invalid response' }))
   if (!response.ok) {
-    return NextResponse.json({ error: result.message || 'AllesKlarDruck API Fehler.' }, { status: 502 })
+    return NextResponse.json(
+      { error: result.message || `AKD API error: ${response.status}` },
+      { status: 502 }
+    )
   }
 
-  await supabase.from('orders').update({
-    print_provider_sent_at: new Date().toISOString(),
-    print_provider_response: result,
-    status: 'processing',
-    updated_at: new Date().toISOString(),
-  }).eq('id', id)
+  await supabase
+    .from('orders')
+    .update({
+      print_provider_sent_at: new Date().toISOString(),
+      print_provider_response: result,
+      status: 'processing',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
 
   return NextResponse.json({ success: true, data: result })
 }
