@@ -267,7 +267,7 @@ export default function HomePage() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.08)', maxWidth: '320px',
           }}>
             <img
-              src="https://yprint.de/wp-content/uploads/2025/02/kaan-freigestellt-front-Kopie-basics-2-768x769.webp"
+              src="/slider/kaan-shirt.webp"
               alt="Oversized T-Shirt"
               style={{ width: '100%', height: '320px', objectFit: 'cover' }}
             />

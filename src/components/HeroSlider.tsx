@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react'
 
 const IMAGES = [
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-flowerface-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-Horse-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/yprint-shirt-sun-logo-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-Mountain-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-peperoni-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-sun-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/LEGIT-Tree-scaled.webp',
-  'https://yprint.de/wp-content/uploads/2025/02/default-shirt-mockup-scaled.webp',
+  '/slider/LEGIT-flowerface.webp',
+  '/slider/LEGIT-Horse.webp',
+  '/slider/yprint-shirt-sun-logo.webp',
+  '/slider/LEGIT-Mountain.webp',
+  '/slider/LEGIT-peperoni.webp',
+  '/slider/LEGIT-sun.webp',
+  '/slider/LEGIT-Tree.webp',
+  '/slider/default-shirt-mockup.webp',
 ]
 
 export default function HeroSlider() {

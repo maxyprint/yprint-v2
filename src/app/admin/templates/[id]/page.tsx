@@ -89,7 +89,7 @@ export default function TemplateEditorPage() {
           const rawVariations = t.variations || {}
           const akdRaw = rawVariations._akd || {}
           const measurementsRaw = rawVariations._measurements || DEFAULT_MEASUREMENTS
-          const DEFAULT_CAL = { shirtLeftPct: 10, shirtTopPct: 5, shirtWidthPx: 0, referenceSize: 'M' }
+          const DEFAULT_CAL = { chestLine: { y: 35, x1: 10, x2: 90 }, collarLine: { y: 8 }, referenceSize: 'M' }
           const DEFAULT_VIEW_ZONE = { left: 10, top: 5, width: 480, height: 680 }
           const DEFAULT_PRINT_ZONE = { left: 30, top: 29, width: 240, height: 260 }
           const variations = Object.fromEntries(
@@ -98,12 +98,17 @@ export default function TemplateEditorPage() {
               .map(([k, v]: [string, any]) => [k, {
                 ...v,
                 views: Object.fromEntries(
-                  Object.entries(v.views || {}).map(([vk, view]: [string, any]) => [vk, {
-                    ...view,
-                    safeZone:    view.safeZone   ?? DEFAULT_VIEW_ZONE,
-                    printZone:   view.printZone  ?? DEFAULT_PRINT_ZONE,
-                    calibration: view.calibration ?? DEFAULT_CAL,
-                  }])
+                  Object.entries(v.views || {}).map(([vk, view]: [string, any]) => {
+                    // Migrate old calibration shape {shirtWidthPx, shirtLeftPct, ...} → new {chestLine, collarLine}
+                    let cal = view.calibration
+                    if (!cal?.chestLine) cal = DEFAULT_CAL
+                    return [vk, {
+                      ...view,
+                      safeZone:    view.safeZone   ?? DEFAULT_VIEW_ZONE,
+                      printZone:   view.printZone  ?? DEFAULT_PRINT_ZONE,
+                      calibration: cal,
+                    }]
+                  })
                 ),
               }])
           ) as Record<string, VariationData>

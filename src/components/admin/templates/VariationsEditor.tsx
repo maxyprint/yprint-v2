@@ -29,7 +29,7 @@ const DEFAULT_VARIATION: VariationData = {
       safeZone: { left: 10, top: 5, width: 480, height: 680 },
       imageZone: { left: 0, top: 0, scaleX: 1, scaleY: 1, angle: 0 },
       printZone: { left: 30, top: 29, width: 240, height: 260 },
-      calibration: { shirtLeftPct: 10, shirtTopPct: 5, shirtWidthPx: 0, referenceSize: 'M' },
+      calibration: { chestLine: { y: 35, x1: 10, x2: 90 }, collarLine: { y: 8 }, referenceSize: 'M' },
     } as ViewData,
   },
 }
@@ -37,7 +37,8 @@ const DEFAULT_VARIATION: VariationData = {
 export function VariationsEditor({ variations, onChange, measurements, printWidthCm, printHeightCm }: Props) {
   const add = () => {
     const id = `var_${Date.now()}`
-    onChange({ ...variations, [id]: { ...DEFAULT_VARIATION, id } })
+    const isFirst = Object.keys(variations).length === 0
+    onChange({ ...variations, [id]: { ...DEFAULT_VARIATION, id, is_default: isFirst } })
   }
 
   const update = (varId: string, variation: VariationData) =>
