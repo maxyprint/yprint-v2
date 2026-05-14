@@ -103,7 +103,7 @@ export default function HomePage() {
         }}>
           <a href="/" style={{ textDecoration: 'none' }}>
             <img
-              src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg"
+              src="/logo.png"
               alt="yprint"
               width={100}
               height={40}

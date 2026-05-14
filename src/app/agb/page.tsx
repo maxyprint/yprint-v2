@@ -12,7 +12,7 @@ export default function AgbPage() {
       <header style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 24px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <img src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg" alt="yprint" width={100} height={40} style={{ objectFit: 'contain', display: 'block' }} />
+            <img src="/logo.png" alt="yprint" width={100} height={40} style={{ objectFit: 'contain', display: 'block' }} />
           </Link>
           <Link href="/" style={{ fontSize: '14px', color: '#6b7280', textDecoration: 'none' }}>← Zurück zur Startseite</Link>
         </div>

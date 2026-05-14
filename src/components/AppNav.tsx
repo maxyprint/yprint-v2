@@ -61,7 +61,7 @@ export default function AppNav() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <img
-              src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg"
+              src="/logo.png"
               alt="yprint"
               height={32}
               style={{ objectFit: 'contain' }}

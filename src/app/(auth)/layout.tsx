@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-8 text-center">
           <a href="/" className="inline-block">
             <img
-              src="https://yprint.de/wp-content/uploads/2025/02/120225-logo.svg"
+              src="/logo.png"
               alt="yprint Logo"
               width={100}
               height={40}
