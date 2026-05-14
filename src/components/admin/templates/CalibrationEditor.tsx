@@ -1,14 +1,16 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { MeasurementsData } from '@/lib/print/calcCoords'
 
 export interface CalibrationData {
-  chestLine: { y: number; x1: number; x2: number }  // all 0–100 % of image
-  collarLine: { y: number }                           // 0–100 % of image height
   referenceSize: string
+  hField: string
+  vField: string
+  hLine: { y: number; x1: number; x2: number }   // % of image (0–100)
+  vLine: { x: number; y1: number; y2: number }   // % of image (0–100)
+  printCenter: { x: number; y: number }           // % of image (0–100)
 }
-
-interface ZoneRect { left: number; top: number; width: number; height: number }
 
 interface Props {
   imageUrl: string
@@ -16,14 +18,20 @@ interface Props {
   onChange: (c: CalibrationData) => void
   onNaturalSize: (w: number, h: number) => void
   availableSizes: string[]
-  zoneOverlay?: { safe: ZoneRect; print: ZoneRect }
+  availableFields: string[]
+  measurements: MeasurementsData | null
+  physicalWidthCm: number
+  physicalHeightCm: number
 }
 
 type DragTarget =
-  | { type: 'chest-bar' }
-  | { type: 'chest-left' }
-  | { type: 'chest-right' }
-  | { type: 'collar' }
+  | { type: 'h-left' }
+  | { type: 'h-right' }
+  | { type: 'h-bar' }
+  | { type: 'v-top' }
+  | { type: 'v-bottom' }
+  | { type: 'v-bar' }
+  | { type: 'print-center' }
 
 interface DragState {
   target: DragTarget
@@ -38,11 +46,23 @@ function clamp(v: number, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, v))
 }
 
-export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSize, availableSizes, zoneOverlay }: Props) {
+export function CalibrationEditor({
+  imageUrl,
+  calibration,
+  onChange,
+  onNaturalSize,
+  availableSizes,
+  availableFields,
+  measurements,
+  physicalWidthCm,
+  physicalHeightCm,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
   const calRef = useRef(calibration)
   const onChangeRef = useRef(onChange)
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
+
   useEffect(() => { calRef.current = calibration }, [calibration])
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
 
@@ -53,20 +73,34 @@ export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSi
       const dxPct = ((e.clientX - drag.startMX) / drag.cW) * 100
       const dyPct = ((e.clientY - drag.startMY) / drag.cH) * 100
       const c = drag.startCal
-      let next = { ...c, chestLine: { ...c.chestLine }, collarLine: { ...c.collarLine } }
-
+      const next = {
+        ...c,
+        hLine: { ...c.hLine },
+        vLine: { ...c.vLine },
+        printCenter: { ...c.printCenter },
+      }
       switch (drag.target.type) {
-        case 'chest-bar':
-          next.chestLine.y = clamp(c.chestLine.y + dyPct, 5, 95)
+        case 'h-left':
+          next.hLine.x1 = clamp(c.hLine.x1 + dxPct, 0, c.hLine.x2 - 2)
           break
-        case 'chest-left':
-          next.chestLine.x1 = clamp(c.chestLine.x1 + dxPct, 0, c.chestLine.x2 - 5)
+        case 'h-right':
+          next.hLine.x2 = clamp(c.hLine.x2 + dxPct, c.hLine.x1 + 2, 100)
           break
-        case 'chest-right':
-          next.chestLine.x2 = clamp(c.chestLine.x2 + dxPct, c.chestLine.x1 + 5, 100)
+        case 'h-bar':
+          next.hLine.y = clamp(c.hLine.y + dyPct, 5, 95)
           break
-        case 'collar':
-          next.collarLine.y = clamp(c.collarLine.y + dyPct, 0, 60)
+        case 'v-top':
+          next.vLine.y1 = clamp(c.vLine.y1 + dyPct, 0, c.vLine.y2 - 2)
+          break
+        case 'v-bottom':
+          next.vLine.y2 = clamp(c.vLine.y2 + dyPct, c.vLine.y1 + 2, 100)
+          break
+        case 'v-bar':
+          next.vLine.x = clamp(c.vLine.x + dxPct, 5, 95)
+          break
+        case 'print-center':
+          next.printCenter.x = clamp(c.printCenter.x + dxPct, 0, 100)
+          next.printCenter.y = clamp(c.printCenter.y + dyPct, 0, 100)
           break
       }
       onChangeRef.current(next)
@@ -92,16 +126,39 @@ export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSi
       startMY: e.clientY,
       startCal: {
         ...calRef.current,
-        chestLine: { ...calRef.current.chestLine },
-        collarLine: { ...calRef.current.collarLine },
+        hLine: { ...calRef.current.hLine },
+        vLine: { ...calRef.current.vLine },
+        printCenter: { ...calRef.current.printCenter },
       },
       cW: rect.width,
       cH: rect.height,
     }
   }
 
-  const { chestLine: cl, collarLine: col } = calibration
-  const chestWidth = cl.x2 - cl.x1
+  // Print zone overlay size in image-% (purely for visual representation)
+  const printZoneOverlay = (() => {
+    if (!naturalSize || !measurements) return null
+    const refM = measurements.per_size[calibration.referenceSize]
+    if (!refM) return null
+    const hRefCm = (refM as unknown as Record<string, number>)[calibration.hField]
+    const vRefCm = (refM as unknown as Record<string, number>)[calibration.vField]
+    if (!hRefCm || !vRefCm) return null
+    const hPx = (calibration.hLine.x2 - calibration.hLine.x1) / 100 * naturalSize.w
+    const vPx = (calibration.vLine.y2 - calibration.vLine.y1) / 100 * naturalSize.h
+    if (hPx <= 0 || vPx <= 0) return null
+    const widthPct  = physicalWidthCm  * (hPx / hRefCm) / naturalSize.w * 100
+    const heightPct = physicalHeightCm * (vPx / vRefCm) / naturalSize.h * 100
+    return {
+      left:   calibration.printCenter.x - widthPct  / 2,
+      top:    calibration.printCenter.y - heightPct / 2,
+      width:  widthPct,
+      height: heightPct,
+    }
+  })()
+
+  const { hLine: hl, vLine: vl, printCenter: pc } = calibration
+  const hWidth  = hl.x2 - hl.x1
+  const vHeight = vl.y2 - vl.y1
 
   return (
     <div className="space-y-3">
@@ -118,6 +175,8 @@ export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSi
             draggable={false}
             onLoad={e => {
               const img = e.currentTarget
+              const ns = { w: img.naturalWidth, h: img.naturalHeight }
+              setNaturalSize(ns)
               onNaturalSize(img.naturalWidth, img.naturalHeight)
             }}
           />
@@ -127,192 +186,225 @@ export function CalibrationEditor({ imageUrl, calibration, onChange, onNaturalSi
           </div>
         )}
 
-        {imageUrl && zoneOverlay && (
-          <>
-            {/* Safe zone — dashed border overlay */}
-            <div style={{
-              position: 'absolute',
-              left:   `${zoneOverlay.safe.left}%`,
-              top:    `${zoneOverlay.safe.top}%`,
-              width:  `${zoneOverlay.safe.width}%`,
-              height: `${zoneOverlay.safe.height}%`,
-              border: '1.5px dashed rgba(0,121,255,0.35)',
-              borderRadius: 2,
-              pointerEvents: 'none',
-            }} />
-            {/* Print zone — filled overlay */}
-            <div style={{
-              position: 'absolute',
-              left:   `${zoneOverlay.print.left}%`,
-              top:    `${zoneOverlay.print.top}%`,
-              width:  `${zoneOverlay.print.width}%`,
-              height: `${zoneOverlay.print.height}%`,
-              background: 'rgba(0,121,255,0.12)',
-              border: '1.5px solid rgba(0,121,255,0.6)',
-              borderRadius: 2,
-              pointerEvents: 'none',
-            }} />
-          </>
-        )}
-
         {imageUrl && (
           <>
-            {/* ── Collar line ── */}
-            <div
-              style={{ position: 'absolute', top: `${col.y}%`, left: 0, right: 0, pointerEvents: 'none' }}
-            >
-              {/* line */}
-              <div style={{ position: 'absolute', left: 0, right: 0, height: 2, background: '#f59e0b', opacity: 0.8 }} />
-              {/* drag handle */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 8,
-                  top: -10,
-                  width: 20,
-                  height: 20,
-                  background: '#f59e0b',
-                  borderRadius: 4,
-                  cursor: 'ns-resize',
-                  pointerEvents: 'auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onMouseDown={e => startDrag({ type: 'collar' }, e)}
-              >
-                <div style={{ width: 8, height: 2, background: 'white', borderRadius: 1, boxShadow: '0 3px 0 white' }} />
-              </div>
-              {/* label */}
-              <span style={{
+            {/* ── Print Zone Rectangle (visual, pointerEvents:none) ── */}
+            {printZoneOverlay && (
+              <div style={{
                 position: 'absolute',
-                left: 34,
-                top: -9,
-                background: '#f59e0b',
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 700,
-                padding: '1px 6px',
-                borderRadius: 4,
-                whiteSpace: 'nowrap',
+                left:   `${printZoneOverlay.left}%`,
+                top:    `${printZoneOverlay.top}%`,
+                width:  `${printZoneOverlay.width}%`,
+                height: `${printZoneOverlay.height}%`,
+                background: 'rgba(0,121,255,0.08)',
+                border: '1.5px solid rgba(0,121,255,0.55)',
+                borderRadius: 2,
                 pointerEvents: 'none',
               }}>
-                Kragen-Unterkante
-              </span>
-            </div>
+                <span style={{
+                  position: 'absolute',
+                  top: 4, left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(0,121,255,0.85)',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 3,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {physicalWidthCm}×{physicalHeightCm} cm
+                </span>
+              </div>
+            )}
 
-            {/* ── Chest line bar ── */}
+            {/* ── Print Zone Center Drag Handle ── */}
             <div
               style={{
                 position: 'absolute',
-                top: `${cl.y}%`,
-                left: `${cl.x1}%`,
-                width: `${chestWidth}%`,
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none',
-              }}
-            >
-              {/* bar body — drag up/down */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  background: '#0079FF',
-                  borderRadius: 2,
-                  cursor: 'ns-resize',
-                  pointerEvents: 'auto',
-                }}
-                onMouseDown={e => startDrag({ type: 'chest-bar' }, e)}
-              />
-
-              {/* left handle */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: -6,
-                  top: -9,
-                  width: 14,
-                  height: 20,
-                  background: '#0079FF',
-                  borderRadius: '4px 0 0 4px',
-                  cursor: 'ew-resize',
-                  pointerEvents: 'auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onMouseDown={e => startDrag({ type: 'chest-left' }, e)}
-              >
-                <div style={{ width: 2, height: 10, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-              </div>
-
-              {/* right handle */}
-              <div
-                style={{
-                  position: 'absolute',
-                  right: -6,
-                  top: -9,
-                  width: 14,
-                  height: 20,
-                  background: '#0079FF',
-                  borderRadius: '0 4px 4px 0',
-                  cursor: 'ew-resize',
-                  pointerEvents: 'auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onMouseDown={e => startDrag({ type: 'chest-right' }, e)}
-              >
-                <div style={{ width: 2, height: 10, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
-              </div>
-
-              {/* label */}
-              <span style={{
-                position: 'absolute',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                top: -18,
+                left: `${pc.x}%`,
+                top:  `${pc.y}%`,
+                width: 22, height: 22,
+                transform: 'translate(-50%, -50%)',
                 background: '#0079FF',
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 700,
-                padding: '1px 6px',
-                borderRadius: 4,
-                whiteSpace: 'nowrap',
-                pointerEvents: 'none',
+                border: '2.5px solid white',
+                borderRadius: '50%',
+                cursor: 'move',
+                pointerEvents: 'auto',
+                zIndex: 10,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+              onMouseDown={e => startDrag({ type: 'print-center' }, e)}
+            >
+              <div style={{ width: 4, height: 4, background: 'white', borderRadius: '50%' }} />
+            </div>
+
+            {/* ── H-Line (blue horizontal, X-scale reference) ── */}
+            <div style={{
+              position: 'absolute',
+              top: `${hl.y}%`,
+              left: `${hl.x1}%`,
+              width: `${hWidth}%`,
+              transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+            }}>
+              {/* Bar */}
+              <div
+                style={{
+                  position: 'absolute', left: 0, right: 0,
+                  height: 3, background: '#0079FF', borderRadius: 2,
+                  cursor: 'ns-resize', pointerEvents: 'auto',
+                }}
+                onMouseDown={e => startDrag({ type: 'h-bar' }, e)}
+              />
+              {/* Left handle */}
+              <div
+                style={{
+                  position: 'absolute', left: -6, top: -9,
+                  width: 14, height: 20, background: '#0079FF',
+                  borderRadius: '4px 0 0 4px', cursor: 'ew-resize',
+                  pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                onMouseDown={e => startDrag({ type: 'h-left' }, e)}
+              >
+                <div style={{ width: 2, height: 10, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              </div>
+              {/* Right handle */}
+              <div
+                style={{
+                  position: 'absolute', right: -6, top: -9,
+                  width: 14, height: 20, background: '#0079FF',
+                  borderRadius: '0 4px 4px 0', cursor: 'ew-resize',
+                  pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                onMouseDown={e => startDrag({ type: 'h-right' }, e)}
+              >
+                <div style={{ width: 2, height: 10, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              </div>
+              {/* Label */}
+              <span style={{
+                position: 'absolute', left: '50%',
+                transform: 'translateX(-50%)', top: -18,
+                background: '#0079FF', color: '#fff',
+                fontSize: 10, fontWeight: 700,
+                padding: '1px 6px', borderRadius: 4,
+                whiteSpace: 'nowrap', pointerEvents: 'none',
               }}>
-                Brustweite
+                {calibration.hField}
+              </span>
+            </div>
+
+            {/* ── V-Line (orange vertical, Y-scale reference) ── */}
+            <div style={{
+              position: 'absolute',
+              left: `${vl.x}%`,
+              top: `${vl.y1}%`,
+              height: `${vHeight}%`,
+              transform: 'translateX(-50%)',
+              pointerEvents: 'none',
+            }}>
+              {/* Bar */}
+              <div
+                style={{
+                  position: 'absolute', top: 0, bottom: 0,
+                  width: 3, background: '#f59e0b', borderRadius: 2,
+                  cursor: 'ew-resize', pointerEvents: 'auto',
+                }}
+                onMouseDown={e => startDrag({ type: 'v-bar' }, e)}
+              />
+              {/* Top handle */}
+              <div
+                style={{
+                  position: 'absolute', top: -6, left: -9,
+                  width: 20, height: 14, background: '#f59e0b',
+                  borderRadius: '4px 4px 0 0', cursor: 'ns-resize',
+                  pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                onMouseDown={e => startDrag({ type: 'v-top' }, e)}
+              >
+                <div style={{ width: 10, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              </div>
+              {/* Bottom handle */}
+              <div
+                style={{
+                  position: 'absolute', bottom: -6, left: -9,
+                  width: 20, height: 14, background: '#f59e0b',
+                  borderRadius: '0 0 4px 4px', cursor: 'ns-resize',
+                  pointerEvents: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+                onMouseDown={e => startDrag({ type: 'v-bottom' }, e)}
+              >
+                <div style={{ width: 10, height: 2, background: 'rgba(255,255,255,0.6)', borderRadius: 1 }} />
+              </div>
+              {/* Label */}
+              <span style={{
+                position: 'absolute', top: '50%',
+                transform: 'translateY(-50%)', left: 10,
+                background: '#f59e0b', color: '#fff',
+                fontSize: 10, fontWeight: 700,
+                padding: '1px 6px', borderRadius: 4,
+                whiteSpace: 'nowrap', pointerEvents: 'none',
+              }}>
+                {calibration.vField}
               </span>
             </div>
           </>
         )}
       </div>
 
-      {/* Reference size selector */}
-      <div className="flex items-center gap-3 px-1">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1">
         <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
-          <div className="w-8 h-2 rounded-sm bg-[#0079FF]" />
-          Brustweite (ziehe Enden links/rechts, Balken hoch/runter)
+          <div className="w-7 h-2 rounded-sm bg-[#0079FF]" />
+          X-Maßstab
         </div>
         <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
-          <div className="w-8 h-0.5 bg-[#f59e0b]" />
-          Kragen-Unterkante (ziehe Handle)
+          <div className="w-2 h-7 rounded-sm bg-[#f59e0b]" />
+          Y-Maßstab
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <label className="text-xs text-[rgba(0,0,0,0.5)]">Referenzgröße</label>
-          <select
-            value={calibration.referenceSize}
-            onChange={e => onChange({ ...calibration, referenceSize: e.target.value })}
-            className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
-          >
-            {availableSizes.length > 0
-              ? availableSizes.map(s => <option key={s} value={s}>{s}</option>)
-              : <option value="M">M</option>
-            }
-          </select>
+        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
+          <div className="w-3.5 h-3.5 rounded-full bg-[#0079FF] border-2 border-white shadow" />
+          Print Zone (Punkt = Mittelpunkt, verschieben)
+        </div>
+
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-[rgba(0,0,0,0.5)]">Größe</label>
+            <select
+              value={calibration.referenceSize}
+              onChange={e => onChange({ ...calibration, referenceSize: e.target.value })}
+              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
+            >
+              {availableSizes.length > 0
+                ? availableSizes.map(s => <option key={s} value={s}>{s}</option>)
+                : <option value="M">M</option>}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-[rgba(0,0,0,0.5)]">H-Feld</label>
+            <select
+              value={calibration.hField}
+              onChange={e => onChange({ ...calibration, hField: e.target.value })}
+              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
+            >
+              {availableFields.length > 0
+                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
+                : <option value="chest_cm">chest_cm</option>}
+            </select>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs text-[rgba(0,0,0,0.5)]">V-Feld</label>
+            <select
+              value={calibration.vField}
+              onChange={e => onChange({ ...calibration, vField: e.target.value })}
+              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
+            >
+              {availableFields.length > 0
+                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
+                : <option value="rib_height_cm">rib_height_cm</option>}
+            </select>
+          </div>
         </div>
       </div>
     </div>

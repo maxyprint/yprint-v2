@@ -30,10 +30,16 @@ const DEFAULT_VIEW: ViewData = {
   colorOverlayEnabled: false,
   overlayOpacity: 0,
   akd_position: 'front',
-  safeZone:  { left: 50, top: 40, width: 70, height: 75 },
   imageZone: { left: 50, top: 50, scaleX: 1, scaleY: 1, angle: 0 },
-  printZone: { left: 50, top: 52, width: 35, height: 32 },
-  calibration: { chestLine: { y: 35, x1: 10, x2: 90 }, collarLine: { y: 8 }, referenceSize: 'M' },
+  printZone: { left: 50, top: 50, width: 35, height: 42 },
+  calibration: {
+    referenceSize: 'M',
+    hField: 'chest_cm',
+    vField: 'rib_height_cm',
+    hLine: { y: 42, x1: 10, x2: 90 },
+    vLine: { x: 50, y1: 28, y2: 36 },
+    printCenter: { x: 50, y: 50 },
+  },
 }
 
 export function VariationCard({ varId, variation, onChange, onRemove, measurements, printWidthCm, printHeightCm }: Props) {

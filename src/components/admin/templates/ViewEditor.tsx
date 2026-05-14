@@ -10,7 +10,6 @@ export interface ViewData {
   colorOverlayEnabled: boolean
   overlayOpacity: number
   akd_position: string
-  safeZone: { left: number; top: number; width: number; height: number }
   imageZone: { left: number; top: number; scaleX: number; scaleY: number; angle: number }
   printZone: { left: number; top: number; width: number; height: number }
   calibration: CalibrationData
@@ -34,40 +33,37 @@ interface Props {
 
 // All zone values stored as % of canvas (0–100).
 // left/top = CENTER position %, width/height = SIZE %.
-// Matching designer.bundle.js: rect.left = zone.left * canvas.width / 100, originX:'center'
-//
 // imageZone uses centered contain-fit:
 //   scale = min(CANVAS_W/naturalW, CANVAS_H/naturalH)
 //   imageZone = {left:50, top:50, scaleX:scale, scaleY:scale}
 //
-// Zone positions must account for the centering offset (gaps around the image):
-//   offsetX = (CANVAS_W - naturalW * scale) / 2
-//   offsetY = (CANVAS_H - naturalH * scale) / 2
-//   x_pct = (offsetX + naturalX * scale) / CANVAS_W * 100  ← center position
-//   y_pct = (offsetY + naturalY * scale) / CANVAS_H * 100
-//   width_pct  = naturalW_px * scale / CANVAS_W * 100      ← size (no offset)
-//   height_pct = naturalH_px * scale / CANVAS_H * 100
-function calcZones(
+// printZone size comes from physical dimensions × pxPerCm derived from
+// the two calibration lines (H-line = X scale, V-line = Y scale).
+// printZone position comes from cal.printCenter (image-%) mapped to canvas-%.
+// There is no automatic position — admin places it manually via drag.
+function calcPrintZone(
   cal: CalibrationData,
   measurements: MeasurementsData,
-  printWidthCm: number,
-  printHeightCm: number,
+  physW_cm: number,
+  physH_cm: number,
   naturalW: number,
   naturalH: number,
-): { imageZone: ViewData['imageZone']; safeZone: ViewData['safeZone']; printZone: ViewData['printZone'] } | null {
+): { imageZone: ViewData['imageZone']; printZone: ViewData['printZone'] } | null {
   const refM = measurements.per_size[cal.referenceSize]
   if (!refM) return null
-  const shirtWidthPx = (cal.chestLine.x2 - cal.chestLine.x1) / 100 * naturalW
-  if (shirtWidthPx <= 0) return null
+  const hRefCm = (refM as unknown as Record<string, number>)[cal.hField]
+  const vRefCm = (refM as unknown as Record<string, number>)[cal.vField]
+  if (!hRefCm || !vRefCm) return null
 
-  const ratio        = shirtWidthPx / refM.chest_cm
-  const shirtLeftPx  = (cal.chestLine.x1 / 100) * naturalW
-  const collarTopPx  = (cal.collarLine.y  / 100) * naturalH
-  const printWidthPx  = printWidthCm  * ratio
-  const printHeightPx = printHeightCm * ratio
-  const shirtHeightPx = refM.length_cm * ratio
-  const printLeftPx  = shirtLeftPx + (refM.chest_cm - printWidthCm) / 2 * ratio
-  const printTopPx   = collarTopPx + (refM.rib_height_cm + measurements.print_y_offset_mm / 10) * ratio
+  const hPx = (cal.hLine.x2 - cal.hLine.x1) / 100 * naturalW
+  const vPx = (cal.vLine.y2 - cal.vLine.y1) / 100 * naturalH
+  if (hPx <= 0 || vPx <= 0) return null
+
+  const pxPerCmX = hPx / hRefCm
+  const pxPerCmY = vPx / vRefCm
+
+  const printW_px = physW_cm * pxPerCmX
+  const printH_px = physH_cm * pxPerCmY
 
   const scale   = Math.min(CANVAS_W / naturalW, CANVAS_H / naturalH)
   const offsetX = (CANVAS_W - naturalW * scale) / 2
@@ -75,29 +71,17 @@ function calcZones(
 
   const r  = (v: number) => Math.round(v * 10)  / 10
   const r3 = (v: number) => Math.round(v * 1000) / 1000
-  // Center position as % of canvas (accounts for centering offset)
-  const xPos = (px: number) => r((offsetX + px * scale) / CANVAS_W * 100)
-  const yPos = (py: number) => r((offsetY + py * scale) / CANVAS_H * 100)
-  // Size as % of canvas (no offset)
-  const xSz  = (px: number) => r(px * scale / CANVAS_W * 100)
-  const ySz  = (py: number) => r(py * scale / CANVAS_H * 100)
+
+  const cx = r((offsetX + cal.printCenter.x / 100 * naturalW * scale) / CANVAS_W * 100)
+  const cy = r((offsetY + cal.printCenter.y / 100 * naturalH * scale) / CANVAS_H * 100)
 
   return {
-    imageZone: {
-      left: 50, top: 50,  // contain-fit centered always lands at 50/50
-      scaleX: r3(scale), scaleY: r3(scale), angle: 0,
-    },
-    safeZone: {
-      left:   xPos(shirtLeftPx + shirtWidthPx  / 2),
-      top:    yPos(collarTopPx  + shirtHeightPx / 2),
-      width:  xSz(shirtWidthPx),
-      height: ySz(shirtHeightPx),
-    },
+    imageZone: { left: 50, top: 50, scaleX: r3(scale), scaleY: r3(scale), angle: 0 },
     printZone: {
-      left:   xPos(printLeftPx + printWidthPx  / 2),
-      top:    yPos(printTopPx  + printHeightPx / 2),
-      width:  xSz(printWidthPx),
-      height: ySz(printHeightPx),
+      left:   cx,
+      top:    cy,
+      width:  r(printW_px * scale / CANVAS_W * 100),
+      height: r(printH_px * scale / CANVAS_H * 100),
     },
   }
 }
@@ -109,10 +93,13 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
   const applyCalc = useCallback((cal: CalibrationData, ns: { w: number; h: number } | null) => {
-    if (!ns || !measurements) return
-    const result = calcZones(cal, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
+    if (!ns || !measurements) {
+      onChange({ ...view, calibration: cal })
+      return
+    }
+    const result = calcPrintZone(cal, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
     if (result) {
-      onChange({ ...view, calibration: cal, imageZone: result.imageZone, safeZone: result.safeZone, printZone: result.printZone })
+      onChange({ ...view, calibration: cal, imageZone: result.imageZone, printZone: result.printZone })
     } else {
       onChange({ ...view, calibration: cal })
     }
@@ -145,12 +132,11 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
           scaleY: Math.round(scale * 1000) / 1000,
           angle: 0 as const,
         }
-        // If calibration is already set, recompute zones with new image size
         const result = measurements
-          ? calcZones(view.calibration, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
+          ? calcPrintZone(view.calibration, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
           : null
         if (result) {
-          onChange({ ...view, image_url: data.url, imageZone: result.imageZone, safeZone: result.safeZone, printZone: result.printZone })
+          onChange({ ...view, image_url: data.url, imageZone: result.imageZone, printZone: result.printZone })
         } else {
           onChange({ ...view, image_url: data.url, imageZone })
         }
@@ -169,13 +155,9 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
     onChange({ ...view, [field]: value })
 
   const availableSizes = measurements ? Object.keys(measurements.per_size) : []
-  const calOk = (view.calibration.chestLine.x2 - view.calibration.chestLine.x1) > 0
-
-  // Zone overlays for CalibrationEditor (convert center-% to CSS left-edge %)
-  const sz = view.safeZone
-  const pz = view.printZone
-  const safeOverlay  = calOk ? { left: sz.left - sz.width  / 2, top: sz.top - sz.height / 2, width: sz.width,  height: sz.height  } : null
-  const printOverlay = calOk ? { left: pz.left - pz.width  / 2, top: pz.top - pz.height / 2, width: pz.width,  height: pz.height  } : null
+  const availableFields = measurements
+    ? Object.keys(measurements.per_size[view.calibration.referenceSize] ?? measurements.per_size[availableSizes[0]] ?? {})
+    : []
 
   return (
     <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
@@ -265,13 +247,13 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
           )}
         </div>
 
-        {/* Calibration + zone preview */}
+        {/* Calibration + print zone */}
         <div>
           <div className="mb-3">
-            <p className="text-sm font-semibold text-[#1d1d1f]">Kalibrierung &amp; Zonenvorschau</p>
+            <p className="text-sm font-semibold text-[#1d1d1f]">Kalibrierung &amp; Print Zone</p>
             <p className="text-xs text-[rgba(0,0,0,0.4)] mt-0.5">
-              Ziehe den blauen Balken auf die Brustbreite des Shirts und den orangen Strich auf die Kragen-Unterkante.
-              Print Zone und Safe Zone werden automatisch berechnet und als Overlay dargestellt.
+              H-Linie (blau) auf die Referenzbreite ziehen, V-Linie (orange) auf die Referenzhöhe.
+              Print Zone (Punkt) auf die gewünschte Druckposition verschieben — Größe wird aus physischen Maßen berechnet.
             </p>
           </div>
           <CalibrationEditor
@@ -280,16 +262,14 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
             onChange={handleCalibrationChange}
             onNaturalSize={(w, h) => setNaturalSize({ w, h })}
             availableSizes={availableSizes}
-            zoneOverlay={safeOverlay && printOverlay ? { safe: safeOverlay, print: printOverlay } : undefined}
+            availableFields={availableFields}
+            measurements={measurements}
+            physicalWidthCm={printWidthCm}
+            physicalHeightCm={printHeightCm}
           />
           {!measurements && (
             <p className="text-xs text-amber-500 mt-2">
-              Maßtabelle noch nicht gesetzt (Section 4) — Zonen können erst berechnet werden wenn Maße vorhanden.
-            </p>
-          )}
-          {measurements && !calOk && (
-            <p className="text-xs text-[rgba(0,0,0,0.4)] mt-2">
-              Kalibrierungslinien setzen um Zonen zu berechnen.
+              Maßtabelle noch nicht gesetzt (Section 4) — Print Zone kann erst berechnet werden wenn Maße vorhanden.
             </p>
           )}
         </div>
