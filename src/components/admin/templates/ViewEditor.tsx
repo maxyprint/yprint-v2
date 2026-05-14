@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef, useState } from 'react'
+
 export interface ViewData {
   name: string
   image_url: string
@@ -52,6 +54,10 @@ function NumInput({ value, onChange, unit, step = 1, min }: {
 }
 
 export function ViewEditor({ viewId, view, onChange, onRemove }: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   const set = <K extends keyof ViewData>(field: K, value: ViewData[K]) =>
     onChange({ ...view, [field]: value })
 
@@ -60,6 +66,26 @@ export function ViewEditor({ viewId, view, onChange, onRemove }: Props) {
 
   const setSz = (field: keyof ViewData['safeZone'], value: number) =>
     onChange({ ...view, safeZone: { ...view.safeZone, [field]: value } })
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/template-images', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload fehlgeschlagen.')
+      set('image_url', data.url)
+    } catch (err: any) {
+      setUploadError(err.message)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
@@ -88,14 +114,57 @@ export function ViewEditor({ viewId, view, onChange, onRemove }: Props) {
         </div>
 
         {/* Mockup image */}
-        <Field label="Mockup-Bild" hint="Pfad zur Shirt-Vorlage (wird im Designer als Hintergrund angezeigt)">
-          <div className="flex items-center gap-3">
-            {view.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={view.image_url} alt="" className="w-12 h-12 object-contain rounded-lg border border-[#e5e7eb] bg-[#f9fafb]" />
-            )}
-            <input type="text" value={view.image_url} onChange={e => set('image_url', e.target.value)} className="yprint-input flex-1 font-mono text-sm" placeholder="/templates/shirt-white-front.png" />
+        <Field label="Mockup-Bild" hint="Shirt-Vorlage, die im Designer als Hintergrund angezeigt wird">
+          <div className="flex items-start gap-3">
+            {/* Preview */}
+            <div
+              className="w-20 h-20 flex-shrink-0 rounded-xl border-2 border-dashed border-[#e5e7eb] bg-[#f9fafb] flex items-center justify-center overflow-hidden cursor-pointer hover:border-[#0079FF]/40 hover:bg-[#0079FF]/5 transition-colors relative group"
+              onClick={() => fileInputRef.current?.click()}
+              title="Bild hochladen"
+            >
+              {view.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={view.image_url} alt="" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-2xl text-[rgba(0,0,0,0.2)]">+</span>
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                <span className="text-white text-xs font-medium">Hochladen</span>
+              </div>
+              {uploading && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                  <div className="w-5 h-5 border-2 border-[#0079FF] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <input
+                type="text"
+                value={view.image_url}
+                onChange={e => set('image_url', e.target.value)}
+                className="yprint-input font-mono text-sm w-full"
+                placeholder="/templates/shirt-white-front.png"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="text-sm text-[#0079FF] hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                {uploading ? 'Wird hochgeladen…' : '↑ Bild hochladen (PNG, JPG, WebP · max. 10 MB)'}
+              </button>
+              {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+            </div>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
         </Field>
 
         {/* Color overlay */}
