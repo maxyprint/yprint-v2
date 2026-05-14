@@ -113,7 +113,17 @@ async function handleGetTemplates() {
     if (varEntries.length > 0) {
       const hasDefault = varEntries.some(([, v]) => v?.is_default)
       if (!hasDefault) varEntries[0][1].is_default = true
-      varEntries.forEach(([, v]) => { if (!v.views) v.views = {} })
+      varEntries.forEach(([, v]) => {
+        if (!v.views) v.views = {}
+        // Rewrite direct Supabase template-assets URLs to proxy path so
+        // Fabric.js WebGL canvas doesn't get CORS-tainted.
+        const supabasePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/template-assets/`
+        Object.values(v.views as Record<string, any>).forEach((view: any) => {
+          if (typeof view?.image_url === 'string' && view.image_url.startsWith(supabasePrefix)) {
+            view.image_url = `/api/template-assets/${view.image_url.slice(supabasePrefix.length)}`
+          }
+        })
+      })
     }
 
     result[t.id] = {

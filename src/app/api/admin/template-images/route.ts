@@ -39,9 +39,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from('template-assets')
-    .getPublicUrl(storagePath)
+  // Return proxy URL (same-origin) instead of direct Supabase URL so that
+  // Fabric.js WebGL canvas can read the image without CORS taint.
+  const proxyUrl = `/api/template-assets/${storagePath}`
 
-  return NextResponse.json({ url: publicUrl, path: storagePath })
+  return NextResponse.json({ url: proxyUrl, path: storagePath })
 }

@@ -30,9 +30,9 @@ const DEFAULT_VIEW: ViewData = {
   colorOverlayEnabled: false,
   overlayOpacity: 0,
   akd_position: 'front',
-  safeZone: { left: 10, top: 5, width: 480, height: 680 },
-  imageZone: { left: 0, top: 0, scaleX: 1, scaleY: 1, angle: 0 },
-  printZone: { left: 30, top: 29, width: 240, height: 260 },
+  safeZone:  { left: 50, top: 40, width: 70, height: 75 },
+  imageZone: { left: 50, top: 50, scaleX: 1, scaleY: 1, angle: 0 },
+  printZone: { left: 50, top: 52, width: 35, height: 32 },
   calibration: { chestLine: { y: 35, x1: 10, x2: 90 }, collarLine: { y: 8 }, referenceSize: 'M' },
 }
 
