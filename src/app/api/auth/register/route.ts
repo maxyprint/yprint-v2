@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendVerificationEmail } from '@/lib/email/resend'
 
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
@@ -50,12 +51,6 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient()
 
-  // Check email availability
-  const { data: existing } = await supabase
-    .from('user_profiles')
-    .select('user_id')
-    .limit(1)
-
   // Create user via admin API (email not confirmed yet)
   const { data, error } = await supabase.auth.admin.createUser({
     email,
@@ -91,13 +86,16 @@ export async function POST(request: Request) {
     await supabase.from('consents').insert(consentEntries)
   }
 
-  // Send verification email via Supabase (uses configured email provider)
-  await supabase.auth.admin.generateLink({
+  // Generate verification link and send via Resend
+  const { data: linkData } = await supabase.auth.admin.generateLink({
     type: 'signup',
     email,
     password,
     options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email` },
   })
+  if (linkData?.properties?.action_link) {
+    await sendVerificationEmail(email, linkData.properties.action_link, username).catch(() => {})
+  }
 
   // HubSpot integration (non-blocking)
   if (process.env.HUBSPOT_ACCESS_TOKEN) {

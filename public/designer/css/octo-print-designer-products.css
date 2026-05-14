@@ -1,0 +1,1014 @@
+.octo-print-designer-products-listing{
+    /* max-width: 1200px; */
+    padding: 20px;
+    font-family: 'Roboto';
+}
+
+.opd-section{
+    /* background: white; */
+    /* border-radius: 10px; */
+    /* box-shadow: 0px 0px 6px 2px #cdcdcd; */
+    position: relative;
+}
+
+.opd-icon{
+    height: 22px;
+    width: 22px;
+    min-height: 22px;
+    min-width: 22px;
+}
+
+.opd-icon-btn{
+    all: unset;
+    border: none;
+    transition: transform 0.3s;
+}
+
+.opd-icon-btn:hover, .opd-icon-btn:focus{
+    all: unset;
+    transform: scale(1.1);
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+/* Filters */
+
+.filter-container{
+    display: flex;
+    padding: 20px;
+    gap: 15px;
+}
+
+.search-simulate{
+    flex: 1;
+    display: flex;
+    background-color: #F6F7FB;
+    border-radius: 50px;
+    align-items: center;
+    padding: 0px 15px;
+    gap: 15px;
+    padding-right: 30px;
+}
+
+.search-simulate input{
+    all: unset;
+    flex: 1;
+    padding: 10px 20px;
+    width: 100%;
+}
+
+.search-simulate input:focus{
+    background: transparent;
+    border: none;
+}
+
+.opd-product-variation-table tr.hidden {
+    display: none;
+}
+
+/* Style the search input */
+.filter-container .search-simulate input::placeholder {
+    color: #999;
+    font-size: 14px;
+}
+
+.filter-container .search-simulate {
+    border: 1px solid #DFDFDF;
+}
+
+.filter-container .search-simulate:focus-within {
+    border-color: #007cba;
+}
+
+/* Listing */
+
+.opd-products-table{
+    border: none;
+}
+
+.opd-products-table th{
+    border: none;
+    border-top: 1px solid #DFDFDF;
+    border-bottom: 1px solid #DFDFDF;
+    text-align: left;
+    font-weight: bold;
+}
+
+.opd-products-table td{
+    border: none;
+    border-bottom: 1px solid #DFDFDF;
+    vertical-align: top;
+    text-wrap: nowrap;
+}
+
+.opd-products-table tr.selected *{
+    font-weight: bold;
+}
+
+.opd-products-table td.multi-select, .opd-products-table td.design-preview{
+    vertical-align: middle;
+}
+
+.opd-products-table td.design-preview{
+    width: 100px;
+}
+
+.opd-products-table td.design-preview img.image-preview{
+    height: 100px;
+    min-width: 100px;
+    object-fit: cover;
+    border: 1px solid black;
+}
+
+.opd-products-table .design-name, .opd-products-table .product-name{
+    display: block;
+}
+
+.opd-products-table td.multi-select{
+    padding-right: 0px;
+    min-width: 40px;
+}
+
+.opd-products-table .multi-select input{
+    width: 100%;
+    max-width: 75px;
+    aspect-ratio: 1;
+}   
+
+.opd-products-table td.design-status{
+    width: 100%;
+}
+
+.opd-products-table td, .opd-products-table th{
+    padding: 10px 30px;
+}
+
+.variations-list .variation-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin: 0 8px 8px 0;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color 0.3s, transform 0.2s;
+    overflow: hidden;
+  }
+  
+  .variations-list .variation-button.active {
+    border-color: #333;
+    transform: scale(1.1);
+  }
+  
+  /* Override any existing styles that might interfere */
+  .variations-list .variation-button::before,
+  .variations-list .variation-button::after {
+    display: none !important;
+  }
+  
+  /* Make sure buttons show a border for white variations */
+  .variations-list .variation-button[style*="background-color: #fff"],
+  .variations-list .variation-button[style*="background-color: #ffffff"],
+  .variations-list .variation-button[style*="background-color:white"] {
+    border: 2px solid #ccc;
+  }
+
+/* Toggle Design */
+
+.octo-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+  }
+  
+.octo-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.octo-toggle-switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: white;
+    border: 2px solid black;
+    transition: .3s;
+    border-radius: 24px;
+}
+
+.octo-toggle-switch .slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: black;
+    border-radius: 50%;
+    transition: .3s;
+}
+
+.octo-toggle-switch input:checked + .slider {
+    background-color: black;
+    border-color: black;
+}
+
+.octo-toggle-switch input:checked + .slider:before {
+    background-color: white;
+    transform: translateX(16px);
+}
+
+/* Product Details */
+
+.opd-product-details{
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.opd-product-details .opd-section{
+    padding: 20px 50px;
+}
+
+.gallery-main-container {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    flex-shrink: 0;
+}
+
+.gallery-main-container .gallery-image-container {
+    width: 100%;
+    height: 100%;
+}
+
+.gallery-image-container.main-image {
+    width: 100%;
+    height: 100%;
+}
+
+.gallery-image-container.drag-over,
+.gallery-main-container.drag-over {
+    border: 2px dashed #2271b1;
+}
+
+.gallery-secondary-container {
+    width: 100%;
+    gap: 20px;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.gallery-image-container {
+    position: relative;
+    cursor: move;
+    border: 2px solid transparent;
+    transition: border-color 0.2s ease;
+    width: 100px;
+}
+
+.gallery-image-container.dragging {
+    opacity: 0.5;
+    border-color: #2271b1;
+}
+
+.gallery-image-remove {
+    all: unset;
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #dc3545;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.gallery-image-container:hover .gallery-image-remove {
+    opacity: 1;
+}
+
+.gallery-main-container {
+    position: relative;
+    border: 2px solid transparent;
+    transition: border-color 0.2s ease;
+}
+
+.gallery-main-container.drag-over {
+    border-color: #2271b1;
+}
+
+.opd-gallery-button{
+    all: unset;
+    border: 1px solid black;
+    border-radius: 10px;
+    padding: 5px 10px;
+    font-weight: bold;
+    transition: transform 0.3s;
+    font-size: 14px;
+    cursor: pointer;
+    display: block;
+}
+
+.opd-gallery-button:hover{
+    background: none;
+    transform: scale(1.05);
+    border: 1px solid black;
+    color: black;
+}
+
+img.product-gallery-image{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 1px solid black;
+    background: white;
+}
+
+.gallery-section{
+    display: flex;
+    gap: 20px;
+}
+
+.gallery-secondary-section{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+}
+
+.opd-product-variation-table, .opd-product-variation-table td, .opd-product-variation-table th{
+    border: none;
+    font-weight: bold;
+    padding: 0;
+}
+
+.opd-product-variation-table td{
+    text-align: center;
+}
+
+.opd-product-variation-table th, .opd-product-variation-table td{
+    border-top: 3px solid #F6F7FB;
+}
+
+.opd-color-displayer {
+    width: 20px;
+    height: 20px;
+    border: 1px solid black;
+    border-radius: 20px;
+}
+
+.opd-product-variation-table td.color{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
+.opd-popup {
+    position: absolute;
+    background: white;
+    border: 2px solid #d2d2d2;
+    border-radius: 10px;
+    padding: 15px;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.opd-popup .opd-popup-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#bulk-actions-popup {
+    min-width: 200px;
+}
+
+#bulk-actions-popup .bulk-action {
+    all: unset;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#bulk-actions-popup .bulk-action:hover {
+    background: #f5f5f5;
+}
+
+#filters-popup {
+    min-width: 300px;
+}
+
+#filters-popup .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#filters-popup .filter-group label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+#filters-popup .filter-group select {
+    padding: 8px;
+    border: 1px solid #d2d2d2;
+    border-radius: 5px;
+}
+
+#filters-popup .filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.opd-context-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.opd-back-button {
+    all: unset;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.opd-back-button:hover {
+    background-color: #f5f5f5;
+}
+
+.opd-back-button img {
+    width: 24px;
+    height: 24px;
+}
+
+.opd-product-variation-table .price-display,
+.opd-product-variation-table .profit-display {
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.opd-product-variation-table .price-display:hover,
+.opd-product-variation-table .profit-display:hover {
+    background-color: #f0f0f0;
+}
+
+.opd-product-variation-table .price-input,
+.opd-product-variation-table .profit-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.opd-product-variation-table .price-input,
+.opd-product-variation-table .profit-input {
+    width: 115px;
+    padding: 2px 4px;
+    border: 1px solid #d2d2d2;
+    border-radius: 4px;
+    font-size: inherit;
+    display: inline-block;
+}
+
+.opd-product-variation-table .profit-symbol {
+    color: inherit;
+    user-select: none;
+}
+
+/* Mobile Variation Modal */
+.opd-variation-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.opd-variation-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.opd-variation-modal-content {
+    position: relative;
+    background: white;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.opd-variation-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.opd-variation-modal-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+.opd-variation-modal-body {
+    padding: 20px;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.opd-variation-modal .form-group {
+    margin-bottom: 20px;
+}
+
+.opd-variation-modal .form-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.opd-variation-modal .price-group,
+.opd-variation-modal .profit-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.opd-variation-modal input[type="number"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.opd-variation-modal .color-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#opd-context-title.has-unsaved-changes::after {
+    content: '*';
+    color: #2271b1;
+    margin-left: 5px;
+    font-weight: bold;
+    animation: pulse 2s infinite;
+}
+
+/* Save button states */
+.opd-action-button.save-product {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.opd-action-button.save-product.has-changes {
+    background: #2271b1;
+    animation: subtle-bounce 2s infinite;
+}
+
+.opd-action-button.save-product:not(.has-changes) {
+    background: #6c757d;
+    cursor: default;
+    opacity: 0.7;
+}
+
+.opd-action-button.save-product:not(.has-changes):hover {
+    transform: none;
+}
+
+/* Variations with unsaved changes */
+.opd-product-variation-table tr.has-unsaved-changes {
+    background-color: rgba(34, 113, 177, 0.05);
+}
+
+.opd-product-variation-table tr.has-unsaved-changes td {
+    border-left: 3px solid #2271b1;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+@keyframes subtle-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+}
+
+/* Add an indicator bar at the top of the page */
+.opd-product-details {
+    position: relative;
+}
+
+.unsaved-changes-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #2271b1 var(--progress), transparent 0);
+    --progress: 0%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.unsaved-changes-indicator.visible {
+    opacity: 1;
+    --progress: 100%;
+}
+
+/* Hide modal by default */
+.opd-variation-modal.hidden {
+    display: none;
+}
+.hidden{
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+
+    .opd-products-table td.design-preview{
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .opd-hidden-mobile{
+        display: none !important;
+    }
+
+    .opd-products-table td.design-preview img.image-preview{
+        background: white;
+        border-radius: 30px;
+    }
+
+    .opd-product-details .opd-section{
+        padding: 20px 25px;
+    }
+
+    .gallery-section {
+        display: flex;
+        gap: 20px;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .opd-mobile-options{
+        margin-top: 20px;
+        background-color: white;
+        display: flex;
+        padding: 15px;
+        border: 1px solid black;
+        border-radius: 50px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        transition: transform 0.3s;
+    }
+
+    .gallery-main-container{
+        width: 100%;
+        aspect-ratio: 1 / 1;
+    }
+
+    .gallery-secondary-section{
+        width: 100%;
+        align-items: center;
+    }
+
+}
+
+@media (min-width: 769px) {
+
+    .opd-hidden-desktop{
+        display: none !important;
+    }
+
+    .opd-variation-modal {
+        display: none !important;
+    }
+
+}
+
+/* Base Modal Structure */
+.designer-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.designer-modal.hidden {
+    display: none;
+}
+
+.designer-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+}
+
+.designer-modal-content {
+    position: relative;
+    background: #fff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    z-index: 1002;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal Header */
+.designer-modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e2e2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.designer-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e1e1e;
+}
+
+.designer-modal-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.designer-modal-close img {
+    width: 20px;
+    height: 20px;
+}
+
+/* Modal Body */
+.designer-modal-body {
+    padding: 20px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+/* Design Preview */
+.design-preview {
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 20px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.design-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #1e1e1e;
+}
+
+/* Variations List */
+.variations-list {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+
+.variation-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s ease;
+}
+
+.variation-button:hover {
+    transform: scale(1.1);
+}
+
+.variation-button.active {
+    border-color: #007cba;
+    transform: scale(1.1);
+}
+
+/* Size Select */
+.size-select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 14px;
+    color: #1e1e1e;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+}
+
+.size-select:focus {
+    border-color: #007cba;
+    outline: none;
+    box-shadow: 0 0 0 1px #007cba;
+}
+
+.size-select.error {
+    border-color: #dc3232;
+    box-shadow: 0 0 0 1px #dc3232;
+}
+
+/* Price Display */
+.price-display {
+    background: #f8f8f8;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.price-label {
+    font-weight: 500;
+    color: #1e1e1e;
+}
+
+.price-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #007cba;
+    transition: color 0.2s ease;
+}
+
+/* Modal Footer */
+.designer-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e2e2e2;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Buttons */
+.designer-action-button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.designer-modal-cancel {
+    background-color: #f0f0f0;
+    color: #1e1e1e;
+}
+
+.designer-modal-cancel:hover {
+    background-color: #e0e0e0;
+}
+
+.designer-modal-save {
+    background-color: #007cba;
+    color: #fff;
+}
+
+.designer-modal-save:hover {
+    background-color: #006ba1;
+}
+
+/* Loading State */
+.designer-modal.loading .designer-modal-content {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.designer-modal.loading .designer-modal-save {
+    position: relative;
+    color: transparent;
+}
+
+.designer-modal.loading .designer-modal-save::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s infinite linear;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive Adjustments */
+@media screen and (max-width: 480px) {
+    .designer-modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+
+    .design-preview {
+        max-width: 100%;
+    }
+
+    .variation-button {
+        width: 35px;
+        height: 35px;
+    }
+
+    .price-display {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+
+    .designer-modal-footer {
+        flex-direction: column;
+    }
+
+    .designer-action-button {
+        width: 100%;
+    }
+
+    .designer-modal-body {
+        max-height: calc(100vh - 250px);
+    }
+}

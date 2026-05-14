@@ -11,7 +11,7 @@ import type { UserAddress } from '@/types'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-function CheckoutForm({ clientSecret, onSuccess }: { clientSecret: string; onSuccess: () => void }) {
+function CheckoutForm({ clientSecret }: { clientSecret: string }) {
   const stripe = useStripe()
   const elements = useElements()
   const [error, setError] = useState<string | null>(null)
@@ -22,12 +22,12 @@ function CheckoutForm({ clientSecret, onSuccess }: { clientSecret: string; onSuc
     if (!stripe || !elements) return
     setError(null)
     setLoading(true)
-    const { error } = await stripe.confirmPayment({
+    const { error: stripeError } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: `${window.location.origin}/checkout/success` },
     })
-    if (error) {
-      setError(error.message || 'Zahlung fehlgeschlagen.')
+    if (stripeError) {
+      setError(stripeError.message || 'Zahlung fehlgeschlagen.')
       setLoading(false)
     }
   }
@@ -53,6 +53,7 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<UserAddress[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [initError, setInitError] = useState<string | null>(null)
 
   const cartTotal = total()
   const shipping = cartTotal > 0 ? 5 : 0
@@ -64,23 +65,77 @@ export default function CheckoutPage() {
       return
     }
 
-    Promise.all([
-      fetch('/api/users/addresses').then(r => r.json()),
-      fetch('/api/payments/stripe/intent', { method: 'POST' }).then(r => r.json()),
-    ]).then(([addrData, intentData]) => {
-      if (addrData.success) {
-        setAddresses(addrData.data)
-        const def = addrData.data.find((a: UserAddress) => a.is_default)
-        if (def) setSelectedAddress(def.id)
+    async function init() {
+      try {
+        // Step 1: sync cart to Supabase to get a session id
+        const cartRes = await fetch('/api/cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map(i => ({
+              design_id: i.design_id,
+              template_id: i.template_id,
+              variation_id: i.variation_id,
+              size: i.size,
+              quantity: i.quantity,
+              unit_price: i.unit_price,
+              design_name: i.design_name,
+            })),
+            coupon_code: couponCode || null,
+          }),
+        })
+        const cartData = await cartRes.json()
+        const cartSessionId = cartData.data?.id
+        if (!cartSessionId) throw new Error('Warenkorb konnte nicht gespeichert werden.')
+
+        // Step 2: load addresses and create payment intent in parallel
+        const [addrRes, intentRes] = await Promise.all([
+          fetch('/api/users/addresses').then(r => r.json()),
+          fetch('/api/payments/stripe/intent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cart_session_id: cartSessionId }),
+          }).then(r => r.json()),
+        ])
+
+        if (addrRes.success) {
+          setAddresses(addrRes.data)
+          const def = addrRes.data.find((a: UserAddress) => a.is_default)
+          if (def) setSelectedAddress(def.id)
+        }
+
+        if (intentRes.client_secret) {
+          setClientSecret(intentRes.client_secret)
+        } else {
+          throw new Error(intentRes.error || 'Payment Intent konnte nicht erstellt werden.')
+        }
+      } catch (err: unknown) {
+        setInitError(err instanceof Error ? err.message : 'Fehler beim Laden des Checkouts.')
+      } finally {
+        setLoading(false)
       }
-      if (intentData.clientSecret) setClientSecret(intentData.clientSecret)
-    }).finally(() => setLoading(false))
-  }, [items.length, router])
+    }
+
+    init()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin w-10 h-10 border-2 border-[#007aff] border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (initError) {
+    return (
+      <div className="max-w-md mx-auto text-center py-12">
+        <div className="yprint-card">
+          <p className="text-red-600 mb-4">{initError}</p>
+          <button onClick={() => router.push('/dashboard')} className="yprint-button yprint-button-secondary">
+            Zurück
+          </button>
+        </div>
       </div>
     )
   }
@@ -132,10 +187,7 @@ export default function CheckoutPage() {
             <div className="yprint-card">
               <h2 className="font-semibold text-[#1d1d1f] mb-4">Zahlung</h2>
               <Elements stripe={stripePromise} options={{ clientSecret, locale: 'de' }}>
-                <CheckoutForm
-                  clientSecret={clientSecret}
-                  onSuccess={() => router.push('/checkout/success')}
-                />
+                <CheckoutForm clientSecret={clientSecret} />
               </Elements>
             </div>
           )}
@@ -163,13 +215,16 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between text-sm text-[rgba(0,0,0,0.6)]">
                 <span>Versand</span>
-                <span>{formatPrice(shipping)}</span>
+                <span>{shipping === 0 ? 'Kostenlos' : formatPrice(shipping)}</span>
               </div>
               <div className="flex justify-between font-semibold text-[#1d1d1f] pt-2 border-t border-[rgba(0,0,0,0.08)]">
                 <span>Gesamt</span>
                 <span>{formatPrice(orderTotal)}</span>
               </div>
             </div>
+            {couponCode && (
+              <p className="text-xs text-green-600 mt-2">Gutschein: {couponCode}</p>
+            )}
           </div>
         </div>
       </div>

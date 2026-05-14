@@ -51,7 +51,7 @@ export async function sendOrderConfirmationEmail(
   total: number
 ) {
   const itemsHtml = items.map(i =>
-    `<tr><td>${i.name}</td><td>${i.quantity}x</td><td style="text-align:right">${(i.price / 100).toFixed(2)} €</td></tr>`
+    `<tr><td>${i.name}</td><td>${i.quantity}x</td><td style="text-align:right">${i.price.toFixed(2)} €</td></tr>`
   ).join('')
 
   return resend.emails.send({
@@ -75,7 +75,7 @@ export async function sendOrderConfirmationEmail(
           <tfoot>
             <tr>
               <td colspan="2" style="padding:8px;font-weight:bold">Gesamt</td>
-              <td style="text-align:right;padding:8px;font-weight:bold">${(total / 100).toFixed(2)} €</td>
+              <td style="text-align:right;padding:8px;font-weight:bold">${total.toFixed(2)} €</td>
             </tr>
           </tfoot>
         </table>

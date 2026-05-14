@@ -5,11 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatPrice(cents: number, currency = 'EUR'): string {
+export function formatPrice(euros: number, currency = 'EUR'): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
     currency,
-  }).format(cents / 100)
+  }).format(euros)
 }
 
 export function formatDate(date: string): string {

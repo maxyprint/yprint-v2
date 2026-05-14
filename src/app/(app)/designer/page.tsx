@@ -23,7 +23,6 @@ export default function DesignerPage() {
   const [vendorReady, setVendorReady] = useState(false)
   const [configSet, setConfigSet] = useState(false)
 
-  // Set config as soon as token is available, before designer bundle loads
   useEffect(() => {
     if (!accessToken || configSet) return
     window.octoPrintDesigner = {
@@ -40,7 +39,11 @@ export default function DesignerPage() {
 
   return (
     <>
-      {/* Load vendor+common first; designer bundle only after config is set */}
+      {/* Designer CSS */}
+      <link rel="stylesheet" href="/designer/css/octo-print-designer-designer.css" />
+      <link rel="stylesheet" href="/designer/css/octo-print-designer-toast.css" />
+
+      {/* Load vendor → common → designer (in order, config must be set before designer) */}
       <Script
         src="/designer/vendor.bundle.js"
         strategy="afterInteractive"

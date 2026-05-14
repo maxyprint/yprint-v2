@@ -93,7 +93,7 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
   }
 
   const orderNumber = generateOrderNumber()
-  const total = pi.amount
+  const totalEuros = pi.amount / 100 // Stripe amount is in cents, store as euros
 
   // Create order
   const { data: order } = await supabase.from('orders').insert({
@@ -103,8 +103,8 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
     payment_status: 'paid',
     payment_method: pi.payment_method_types?.[0] || 'card',
     stripe_payment_intent_id: pi.id,
-    subtotal: total,
-    total: total,
+    subtotal: totalEuros,
+    total: totalEuros,
     currency: pi.currency.toUpperCase(),
     coupon_code: couponCode,
     shipping_address: shippingAddress,
@@ -122,8 +122,8 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
       variation_id: item.variation_id || null,
       size: item.size || null,
       quantity: item.quantity,
-      unit_price: Math.round(item.unit_price * 100),
-      total_price: Math.round(item.unit_price * item.quantity * 100),
+      unit_price: item.unit_price, // already in euros
+      total_price: item.unit_price * item.quantity,
     }))
     await supabase.from('order_items').insert(items)
 
@@ -143,9 +143,9 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
         (cartItems as Array<{ design_name?: string; quantity: number; unit_price: number }>).map(i => ({
           name: i.design_name || 'Design',
           quantity: i.quantity,
-          price: Math.round(i.unit_price * 100),
+          price: i.unit_price, // euros
         })),
-        total
+        totalEuros
       )
     }
   }
