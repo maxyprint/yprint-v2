@@ -5,6 +5,62 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import TurnstileWidget from '@/components/TurnstileWidget'
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '52px',
+  padding: '16px 20px',
+  fontFamily: 'inherit',
+  fontSize: '16px',
+  fontWeight: 400,
+  lineHeight: 1.5,
+  color: '#111827',
+  backgroundColor: '#f3f4f6',
+  border: '2px solid #e5e7eb',
+  borderRadius: '12px',
+  outline: 'none',
+  transition: 'all 0.3s ease',
+  boxSizing: 'border-box' as const,
+}
+
+function FormInput({
+  id,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  required,
+}: {
+  id: string
+  type?: string
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  placeholder: string
+  autoComplete?: string
+  required?: boolean
+}) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      autoComplete={autoComplete}
+      required={required}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        ...inputStyle,
+        backgroundColor: focused ? '#ffffff' : '#f3f4f6',
+        borderColor: focused ? '#3b82f6' : '#e5e7eb',
+        boxShadow: focused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+      }}
+    />
+  )
+}
+
 export default function RegisterPage() {
   const router = useRouter()
 
@@ -65,152 +121,197 @@ export default function RegisterPage() {
     }
   }
 
+  const cardStyle: React.CSSProperties = {
+    background: '#ffffff',
+    borderRadius: '20px',
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+    border: '1px solid #e5e7eb',
+    padding: '40px',
+    width: '100%',
+    maxWidth: '420px',
+    position: 'relative',
+    boxSizing: 'border-box',
+    fontFamily: "'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif",
+  }
+
   if (success) {
     return (
-      <div className="yprint-card text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-          </svg>
+      <div style={cardStyle}>
+        <div style={{ textAlign: 'center' }}>
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              background: '#f0fdf4',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px auto',
+            }}
+          >
+            <svg width="32" height="32" fill="none" stroke="#16a34a" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+          </div>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#111827', margin: '0 0 12px 0' }}>
+            Fast geschafft!
+          </h2>
+          <p style={{ fontSize: '15px', color: '#6b7280', margin: '0 0 28px 0', lineHeight: 1.5 }}>
+            Wir haben dir eine Bestätigungs-E-Mail an{' '}
+            <strong style={{ color: '#111827' }}>{form.email}</strong> gesendet.
+            Klicke auf den Link in der E-Mail um dein Konto zu aktivieren.
+          </p>
+          <Link
+            href="/login"
+            className="yprint-button yprint-button-primary"
+            style={{ textDecoration: 'none', display: 'inline-flex', width: '100%' }}
+          >
+            Zur Anmeldung
+          </Link>
         </div>
-        <h2 className="text-xl font-bold text-[#1d1d1f] mb-2">Fast geschafft!</h2>
-        <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">
-          Wir haben dir eine Bestätigungs-E-Mail an <strong>{form.email}</strong> gesendet.
-          Klicke auf den Link in der E-Mail um dein Konto zu aktivieren.
-        </p>
-        <Link href="/login" className="yprint-button yprint-button-primary">
-          Zur Anmeldung
-        </Link>
       </div>
     )
   }
 
   return (
-    <div className="yprint-card">
-      <h1 className="text-2xl font-bold text-[#1d1d1f] mb-2">Konto erstellen</h1>
-      <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">
-        Bereits registriert?{' '}
-        <Link href="/login" className="text-[#007aff] hover:underline font-medium">
-          Jetzt anmelden
-        </Link>
-      </p>
+    <div style={cardStyle}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <h1
+          style={{
+            fontSize: '26px',
+            fontWeight: 700,
+            color: '#111827',
+            margin: '0 0 8px 0',
+          }}
+        >
+          Konto erstellen
+        </h1>
+        <p style={{ fontSize: '15px', color: '#6b7280', margin: 0 }}>
+          Registriere dich bei yprint
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Vorname</label>
-            <input
-              id="firstName"
-              type="text"
-              value={form.firstName}
-              onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-              required
-              className="yprint-input"
-              placeholder="Max"
-            />
-          </div>
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Nachname</label>
-            <input
-              id="lastName"
-              type="text"
-              value={form.lastName}
-              onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-              required
-              className="yprint-input"
-              placeholder="Muster"
-            />
-          </div>
+      <form onSubmit={handleSubmit}>
+        {/* Name row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+          <FormInput
+            id="firstName"
+            value={form.firstName}
+            onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
+            placeholder="Vorname"
+            required
+          />
+          <FormInput
+            id="lastName"
+            value={form.lastName}
+            onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
+            placeholder="Nachname"
+            required
+          />
         </div>
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">E-Mail</label>
-          <input
+        <div style={{ marginBottom: '24px' }}>
+          <FormInput
             id="email"
             type="email"
             value={form.email}
             onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-            required
+            placeholder="E-Mail-Adresse"
             autoComplete="email"
-            className="yprint-input"
-            placeholder="deine@email.de"
+            required
           />
         </div>
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Passwort</label>
-          <input
+        <div style={{ marginBottom: '24px' }}>
+          <FormInput
             id="password"
             type="password"
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-            required
+            placeholder="Passwort (mind. 8 Zeichen)"
             autoComplete="new-password"
-            className="yprint-input"
-            placeholder="Mindestens 8 Zeichen"
+            required
           />
         </div>
 
-        <div>
-          <label htmlFor="passwordConfirm" className="block text-sm font-medium text-[#1d1d1f] mb-1.5">Passwort wiederholen</label>
-          <input
+        <div style={{ marginBottom: '24px' }}>
+          <FormInput
             id="passwordConfirm"
             type="password"
             value={form.passwordConfirm}
             onChange={e => setForm(f => ({ ...f, passwordConfirm: e.target.value }))}
-            required
+            placeholder="Passwort wiederholen"
             autoComplete="new-password"
-            className="yprint-input"
-            placeholder="••••••••"
+            required
           />
         </div>
 
-        <div className="space-y-2.5 pt-1">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consents.terms}
-              onChange={e => setConsents(c => ({ ...c, terms: e.target.checked }))}
-              className="mt-0.5 rounded border-gray-300 text-[#007aff]"
-            />
-            <span className="text-sm text-[rgba(0,0,0,0.7)]">
-              Ich akzeptiere die{' '}
-              <Link href="/agb" target="_blank" className="text-[#007aff] hover:underline">Nutzungsbedingungen</Link>
-              {' '}*
-            </span>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consents.privacy}
-              onChange={e => setConsents(c => ({ ...c, privacy: e.target.checked }))}
-              className="mt-0.5 rounded border-gray-300 text-[#007aff]"
-            />
-            <span className="text-sm text-[rgba(0,0,0,0.7)]">
-              Ich habe die{' '}
-              <Link href="/datenschutz" target="_blank" className="text-[#007aff] hover:underline">Datenschutzerklärung</Link>
-              {' '}gelesen und akzeptiert *
-            </span>
-          </label>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={consents.marketing}
-              onChange={e => setConsents(c => ({ ...c, marketing: e.target.checked }))}
-              className="mt-0.5 rounded border-gray-300 text-[#007aff]"
-            />
-            <span className="text-sm text-[rgba(0,0,0,0.7)]">
-              Ich möchte Newsletter und Angebote per E-Mail erhalten (optional)
-            </span>
-          </label>
+        {/* Legal notice */}
+        <div
+          style={{
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+            fontSize: '13px',
+            color: '#6b7280',
+            lineHeight: 1.5,
+            textAlign: 'center',
+          }}
+        >
+          Durch Klicken auf &apos;Registrieren&apos; akzeptierst du unsere{' '}
+          <Link href="/agb" target="_blank" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+            Nutzungsbedingungen
+          </Link>
+          {' '}und bestätigst, die{' '}
+          <Link href="/datenschutz" target="_blank" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+            Datenschutzerklärung
+          </Link>
+          {' '}gelesen zu haben.
         </div>
 
-        <div className="flex justify-center">
+        {/* Optional marketing consent */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            cursor: 'pointer',
+            marginBottom: '20px',
+            fontSize: '13px',
+            color: '#6b7280',
+            lineHeight: 1.5,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={consents.marketing}
+            onChange={e => setConsents(c => ({ ...c, marketing: e.target.checked }))}
+            style={{ marginTop: '2px', accentColor: '#3b82f6' }}
+          />
+          <span>Ich möchte Newsletter und Angebote per E-Mail erhalten (optional)</span>
+        </label>
+
+        {/* Turnstile */}
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
           <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
         </div>
 
         {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: '8px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              fontSize: '14px',
+              marginBottom: '16px',
+            }}
+          >
             {error}
           </div>
         )}
@@ -218,11 +319,33 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading || !turnstileToken}
-          className="yprint-button yprint-button-primary w-full"
+          className="yprint-button yprint-button-primary"
+          style={{ width: '100%' }}
         >
-          {loading ? 'Konto wird erstellt…' : 'Konto erstellen'}
+          {loading ? 'Konto wird erstellt…' : 'Registrieren'}
         </button>
       </form>
+
+      {/* Login section */}
+      <div
+        style={{
+          marginTop: '24px',
+          paddingTop: '24px',
+          borderTop: '1px solid #e5e7eb',
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 16px 0' }}>
+          Du hast bereits ein Konto?
+        </p>
+        <Link
+          href="/login"
+          className="yprint-button yprint-button-secondary"
+          style={{ width: '100%', textDecoration: 'none' }}
+        >
+          Jetzt anmelden
+        </Link>
+      </div>
     </div>
   )
 }

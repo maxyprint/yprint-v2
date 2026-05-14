@@ -2,9 +2,21 @@ import AppNav from '@/components/AppNav'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#f5f5f7]">
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#f3f4f6',
+        fontFamily: "'Inter', 'Roboto', 'Helvetica Neue', Arial, sans-serif",
+      }}
+    >
       <AppNav />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '30px 20px',
+        }}
+      >
         {children}
       </main>
     </div>

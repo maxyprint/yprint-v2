@@ -24,94 +24,338 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Page header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid rgba(0,0,0,0.05)',
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold text-[#1d1d1f]">Meine Designs</h1>
-          <p className="text-[rgba(0,0,0,0.6)] text-sm mt-0.5">
-            Willkommen zurück{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
-          </p>
+          <h2
+            style={{
+              fontSize: '18px',
+              fontWeight: 600,
+              color: '#111827',
+              margin: 0,
+              lineHeight: 1.2,
+            }}
+          >
+            Deine Designs
+          </h2>
+          {!loading && (
+            <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: 400 }}>
+              {designs.length} {designs.length === 1 ? 'Design' : 'Designs'}
+            </span>
+          )}
         </div>
-        <Link href="/designer" className="yprint-button yprint-button-primary">
-          + Neues Design
+        <Link
+          href="/designer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '10px 18px',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            color: '#ffffff',
+            borderRadius: '10px',
+            fontSize: '14px',
+            fontWeight: 600,
+            textDecoration: 'none',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Neues Design
         </Link>
       </div>
 
+      {/* Designs container */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="yprint-card animate-pulse">
-              <div className="aspect-square bg-[#f5f5f7] rounded-lg mb-3" />
-              <div className="h-4 bg-[#f5f5f7] rounded w-3/4 mb-2" />
-              <div className="h-3 bg-[#f5f5f7] rounded w-1/2" />
-            </div>
-          ))}
+        <div style={{ overflowX: 'auto', paddingBottom: '8px' }}>
+          <div style={{ display: 'flex', gap: '16px', minWidth: 'max-content', padding: '4px 0' }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: '200px',
+                  minWidth: '200px',
+                  background: '#ffffff',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e5e5',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ width: '100%', height: '160px', background: '#f3f4f6', animation: 'pulse 2s infinite' }} />
+                <div style={{ padding: '12px' }}>
+                  <div style={{ height: '14px', background: '#f3f4f6', borderRadius: '4px', marginBottom: '8px', width: '75%' }} />
+                  <div style={{ height: '12px', background: '#f3f4f6', borderRadius: '4px', width: '50%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : designs.length === 0 ? (
-        <div className="yprint-card text-center py-16">
-          <div className="w-16 h-16 bg-[#007aff]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-[#007aff]" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '64px 40px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            border: '1px solid #e5e7eb',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              background: 'rgba(59,130,246,0.1)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px auto',
+            }}
+          >
+            <svg width="32" height="32" fill="none" stroke="#3b82f6" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-[#1d1d1f] mb-2">Noch keine Designs</h2>
-          <p className="text-[rgba(0,0,0,0.6)] text-sm mb-6">
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
+            Noch keine Designs
+          </h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 28px 0', lineHeight: 1.5 }}>
             Erstelle dein erstes Design und starte deine Streetwear-Marke!
           </p>
-          <Link href="/designer" className="yprint-button yprint-button-primary">
+          <Link
+            href="/designer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '14px 28px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              color: '#ffffff',
+              borderRadius: '12px',
+              fontSize: '15px',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
             Design erstellen
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {designs.map(design => (
-            <div key={design.id} className="yprint-card group hover:shadow-md transition-shadow">
-              <div className="aspect-square bg-[#f5f5f7] rounded-lg mb-3 overflow-hidden relative">
-                {design.product_images?.[0]?.url ? (
-                  <img
-                    src={design.product_images[0].url}
-                    alt={design.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[rgba(0,0,0,0.2)]">
-                    <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <h3 className="font-semibold text-[#1d1d1f] text-sm truncate">{design.name}</h3>
-              <p className="text-xs text-[rgba(0,0,0,0.5)] mt-0.5 mb-3">{formatDate(design.created_at)}</p>
-              <div className="flex gap-2">
+        <div style={{ overflowX: 'auto', paddingBottom: '8px' }}>
+          <div style={{ display: 'flex', gap: '16px', minWidth: 'max-content', padding: '4px 0' }}>
+            {designs.map(design => (
+              <div
+                key={design.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  width: '200px',
+                  minWidth: '200px',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '8px',
+                  border: '1px solid #e5e5e5',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLDivElement
+                  el.style.borderColor = '#3b82f6'
+                  el.style.transform = 'translateY(-2px)'
+                  el.style.boxShadow = '0 4px 12px rgba(59,130,246,0.15)'
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLDivElement
+                  el.style.borderColor = '#e5e5e5'
+                  el.style.transform = 'translateY(0)'
+                  el.style.boxShadow = 'none'
+                }}
+              >
+                {/* Clickable area */}
                 <Link
                   href={`/designer?design=${design.id}`}
-                  className="flex-1 text-center py-1.5 text-xs font-medium text-[#007aff] border border-[#007aff] rounded-lg hover:bg-[#007aff]/5 transition-colors"
+                  style={{ flex: 1, textDecoration: 'none', display: 'block' }}
                 >
-                  Bearbeiten
+                  <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden' }}>
+                    {design.product_images?.[0]?.url ? (
+                      <img
+                        src={design.product_images[0].url}
+                        alt={design.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f9fafb' }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <svg width="32" height="32" fill="white" opacity={0.7} viewBox="0 0 24 24">
+                          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ padding: '12px', flex: 1 }}>
+                    <h3
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: '#111827',
+                        margin: '0 0 4px 0',
+                        lineHeight: 1.3,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={design.name}
+                    >
+                      {design.name}
+                    </h3>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
+                      Erstellt am {formatDate(design.created_at)}
+                    </p>
+                  </div>
                 </Link>
-                <button
-                  onClick={() => {
-                    if (design.template_id) {
-                      addItem({
-                        design_id: design.id,
-                        variation_id: '',
-                        variation_name: '',
-                        size: '',
-                        quantity: 1,
-                        unit_price: 0,
-                        design_name: design.name,
-                        template_id: design.template_id!,
-                        template_name: '',
-                      })
-                    }
+
+                {/* Actions bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    borderTop: '1px solid rgba(0,0,0,0.05)',
+                    backgroundColor: '#f9fafb',
                   }}
-                  className="flex-1 py-1.5 text-xs font-medium bg-[#007aff] text-white rounded-lg hover:bg-[#0066d6] transition-colors"
                 >
-                  Bestellen
-                </button>
+                  {/* Order button */}
+                  <button
+                    onClick={() => {
+                      if (design.template_id) {
+                        addItem({
+                          design_id: design.id,
+                          variation_id: '',
+                          variation_name: '',
+                          size: '',
+                          quantity: 1,
+                          unit_price: 0,
+                          design_name: design.name,
+                          template_id: design.template_id!,
+                          template_name: '',
+                        })
+                      }
+                    }}
+                    title="Erneut bestellen"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      padding: '6px 8px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: '#374151',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 512 512">
+                      <path d="M500.33 0h-47.41a12 12 0 0 0-12 12.57l4 72A4 4 0 0 1 441 89a405.66 405.66 0 0 0-93.07-33.46C230.41 28.09 112 49.36 21.24 143.75A32 32 0 0 0 22 189.8L39.9 207.7a32 32 0 0 0 46.29-.39 288.86 288.86 0 0 1 88.16-67.77c52.82-23.25 109.4-32.48 167.42-27.08a304.34 304.34 0 0 1 86.58 25.81 4 4 0 0 1 1.67 5.27L411.6 183a4 4 0 0 0 3.82 5.42h84.66a12 12 0 0 0 12-12V12a12 12 0 0 0-11.75-12zM490.89 320a32 32 0 0 0-46.29.39 288.86 288.86 0 0 1-88.16 67.77c-52.82 23.25-109.4 32.48-167.42 27.08a304.34 304.34 0 0 1-86.58-25.81 4 4 0 0 1-1.67-5.27l18.42-39.48a4 4 0 0 0-3.82-5.42H30.71A12 12 0 0 0 18.63 352v120a12 12 0 0 0 12 12h47.41a12 12 0 0 0 12-12.57l-4-72a4 4 0 0 1 3.86-4.26 405.66 405.66 0 0 0 93.07 33.46c117.52 27.45 235.93 6.18 326.73-88.21a32 32 0 0 0-.81-46.42z" />
+                    </svg>
+                    <span>Order</span>
+                  </button>
+
+                  {/* Edit link */}
+                  <Link
+                    href={`/designer?design=${design.id}`}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      textDecoration: 'none',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: '#374151',
+                      transition: 'all 0.2s ease',
+                    }}
+                    title="Bearbeiten"
+                  >
+                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                    <span>Bearbeiten</span>
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+
+            {/* Create new card */}
+            <Link
+              href="/designer"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '200px',
+                minWidth: '200px',
+                height: '240px',
+                backgroundColor: '#ffffff',
+                borderRadius: '8px',
+                border: '2px dashed #d1d5db',
+                textDecoration: 'none',
+                gap: '8px',
+                transition: 'all 0.2s ease',
+                color: '#6b7280',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLAnchorElement
+                el.style.borderColor = '#3b82f6'
+                el.style.color = '#3b82f6'
+                el.style.background = 'rgba(59,130,246,0.04)'
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLAnchorElement
+                el.style.borderColor = '#d1d5db'
+                el.style.color = '#6b7280'
+                el.style.background = '#ffffff'
+              }}
+            >
+              <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, textAlign: 'center', lineHeight: 1.3 }}>
+                Design<br />erstellen
+              </p>
+            </Link>
+          </div>
         </div>
       )}
     </div>
