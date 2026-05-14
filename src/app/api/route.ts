@@ -106,6 +106,16 @@ async function handleGetTemplates() {
     const variations = Object.fromEntries(
       Object.entries(t.variations ?? {}).filter(([k]) => !k.startsWith('_'))
     )
+
+    // Safety: designer bundle crashes if no variation has is_default=true or if views is missing.
+    // Ensure the first variation is the default and every variation has a views object.
+    const varEntries = Object.entries(variations) as [string, any][]
+    if (varEntries.length > 0) {
+      const hasDefault = varEntries.some(([, v]) => v?.is_default)
+      if (!hasDefault) varEntries[0][1].is_default = true
+      varEntries.forEach(([, v]) => { if (!v.views) v.views = {} })
+    }
+
     result[t.id] = {
       id: t.id,
       name: t.name,
