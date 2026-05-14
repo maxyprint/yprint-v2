@@ -14,20 +14,21 @@ const supabase = createClient(
 )
 
 // Local image served from /public/templates/ — no CORS/hotlink issues
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://yprint-v2.vercel.app'
-const SHIRT_WHITE_FRONT = `${APP_URL}/templates/shirt-white-front.png`
+// Use relative URL — works on any deployment, avoids cross-origin CORS for fabric.Image.fromURL
+const SHIRT_WHITE_FRONT = '/templates/shirt-white-front.png'
 
-// Image is 600×1067 px. Zones in pixels:
-// - Shirt collar at ~y=280, hem at ~y=920, side seams at x≈90 and x≈510
-// - Print zone (front chest): ~x=180, y=310, w=240, h=260
+// Image is 600×1067 px. Zone format: left/top = PERCENT (0-100), width/height = PIXELS
+// - Shirt collar at ~y=280 (26% of 1067), hem at ~y=920, side seams at x≈90 and x≈510
+// - Safe zone starts at x=120 (20% of 600), y=280 (26% of 1067)
+// - Print zone (front chest): x=180 (30%), y=310 (29%), w=240px, h=260px
 const FRONT_VIEW_WHITE = {
   name: 'Front',
   image_url: SHIRT_WHITE_FRONT,
   colorOverlayEnabled: false,
   overlayOpacity: 0,
-  safeZone:  { left: 120, top: 280, width: 360, height: 560 },
-  imageZone: { left: 0,   top: 0,   scaleX: 1, scaleY: 1, angle: 0 },
-  printZone: { left: 180, top: 310, width: 240, height: 260 },
+  safeZone:  { left: 20,  top: 26, width: 360, height: 560 },
+  imageZone: { left: 0,   top: 0,  scaleX: 1, scaleY: 1, angle: 0 },
+  printZone: { left: 30,  top: 29, width: 240, height: 260 },
 }
 
 // Black variation — same image with a dark overlay

@@ -130,7 +130,7 @@ async function handleUploadUserImage(userId: string, body: FormData) {
     return NextResponse.json({ success: false, data: 'Image limit reached (max 20)' }, { status: 400 })
   }
 
-  const file = body.get('file') as File | null
+  const file = (body.get('image') ?? body.get('file')) as File | null
   if (!file) return NextResponse.json({ success: false, data: 'No file' }, { status: 400 })
   if (file.size > 5 * 1024 * 1024)
     return NextResponse.json({ success: false, data: 'File too large (max 5MB)' }, { status: 400 })
