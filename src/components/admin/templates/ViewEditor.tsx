@@ -240,20 +240,7 @@ export function ViewEditor({ viewId, view, onChange, onRemove }: Props) {
           )}
         </div>
 
-        {/* ── mm coordinates for print provider ── */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-3 h-3 rounded-sm bg-[#10b981]/20 border border-[#10b981]" />
-            <p className="text-sm font-semibold text-[#1d1d1f]">Druckkoordinaten für AllesKlarDruck</p>
-            <span className="text-xs text-[rgba(0,0,0,0.4)]">physische mm-Werte</span>
-          </div>
-          <div className="grid grid-cols-4 gap-3 p-4 bg-[#f0fdf4] rounded-xl border border-[#10b981]/20">
-            <NumInput label="Start X" value={view.printZone.offsetX_mm} onChange={v => setPz('offsetX_mm', v)} unit="mm" step={0.5} />
-            <NumInput label="Start Y" value={view.printZone.offsetY_mm} onChange={v => setPz('offsetY_mm', v)} unit="mm" step={0.5} />
-            <NumInput label="Breite"  value={view.printZone.width_mm}   onChange={v => setPz('width_mm', v)}   unit="mm" step={0.5} />
-            <NumInput label="Höhe"    value={view.printZone.height_mm}  onChange={v => setPz('height_mm', v)}  unit="mm" step={0.5} />
-          </div>
-        </div>
+        {/* mm coordinates auto-calculated from measurements per size — no manual inputs needed */}
       </div>
     </div>
   )

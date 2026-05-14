@@ -83,6 +83,17 @@ const template = {
       series: 'SS25',
       print_method: 'DTG',
     },
+    _measurements: {
+      per_size: {
+        XS:  { chest_cm: 59, length_cm: 67, rib_height_cm: 2 },
+        S:   { chest_cm: 60, length_cm: 68, rib_height_cm: 2 },
+        M:   { chest_cm: 61, length_cm: 69, rib_height_cm: 2 },
+        L:   { chest_cm: 62, length_cm: 70, rib_height_cm: 2 },
+        XL:  { chest_cm: 64, length_cm: 71, rib_height_cm: 2 },
+        XXL: { chest_cm: 66, length_cm: 72, rib_height_cm: 2 },
+      },
+      print_y_offset_mm: 60,
+    },
     var_white: {
       id: 'var_white',
       name: 'White',

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { calcPrintCoords, MeasurementsData } from '@/lib/print/calcCoords'
 
 const AKD_API_URL = 'https://api.allesklardruck.de/order'
 
@@ -67,10 +68,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   const items: AkdItem[] = []
 
   for (const item of order.order_items as any[]) {
-    // Load template to get AKD product config + variations
+    // Load template to get AKD product config + variations + dimensions
     const { data: template } = await supabase
       .from('design_templates')
-      .select('variations')
+      .select('variations, physical_width_cm, physical_height_cm')
       .eq('id', item.template_id)
       .single()
 
@@ -79,8 +80,10 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     }
 
     const variations = template.variations as Record<string, any>
-    // AKD config stored under _akd key (filtered from designer responses)
     const akdConfig = variations._akd || {}
+    const measurements = variations._measurements as MeasurementsData | undefined
+    const printWidthCm: number = (template as any).physical_width_cm ?? 30
+    const printHeightCm: number = (template as any).physical_height_cm ?? 40
 
     // Resolve variation → AKD color + views
     const variation = variations[item.variation_id]
@@ -102,14 +105,30 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       const fileUrl = pngByView[viewId]
       if (!fileUrl) continue
 
-      const pz = view.printZone || {}
+      // Prefer per-size calculation from measurements table; fall back to stored mm fields
+      let offsetX: number, offsetY: number, width: number, height: number
+      const sizeMeasurement = measurements?.per_size?.[item.size]
+      if (sizeMeasurement) {
+        const coords = calcPrintCoords(sizeMeasurement, printWidthCm, printHeightCm, measurements!.print_y_offset_mm)
+        offsetX = coords.offsetX_mm
+        offsetY = coords.offsetY_mm
+        width   = coords.width_mm
+        height  = coords.height_mm
+      } else {
+        const pz = view.printZone || {}
+        offsetX = pz.offsetX_mm ?? 0
+        offsetY = pz.offsetY_mm ?? 0
+        width   = pz.width_mm ?? (printWidthCm * 10)
+        height  = pz.height_mm ?? (printHeightCm * 10)
+      }
+
       prints.push({
         position: view.akd_position || 'front',
         file_url: fileUrl,
-        offsetX: pz.offsetX_mm ?? 0,
-        offsetY: pz.offsetY_mm ?? 0,
-        width: pz.width_mm ?? 120,
-        height: pz.height_mm ?? 130,
+        offsetX,
+        offsetY,
+        width,
+        height,
       })
     }
 

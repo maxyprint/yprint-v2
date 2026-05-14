@@ -6,10 +6,13 @@ import Link from 'next/link'
 import { SizesPricingEditor } from '@/components/admin/templates/SizesPricingEditor'
 import { VariationsEditor } from '@/components/admin/templates/VariationsEditor'
 import { VariationData } from '@/components/admin/templates/VariationCard'
+import { MeasurementsEditor, MeasurementsData } from '@/components/admin/templates/MeasurementsEditor'
 
 interface Size { id: string; name: string; order: number }
 interface Pricing { [sizeId: string]: { base: number } }
 interface AkdConfig { product_type: string; manufacturer: string; series: string; print_method: string }
+
+const DEFAULT_MEASUREMENTS: MeasurementsData = { per_size: {}, print_y_offset_mm: 60 }
 
 interface TemplateForm {
   name: string
@@ -21,6 +24,7 @@ interface TemplateForm {
   base_price: number
   in_stock: boolean
   akd: AkdConfig
+  measurements: MeasurementsData
   sizes: Size[]
   variations: Record<string, VariationData>
   pricing: Pricing
@@ -36,6 +40,7 @@ const DEFAULT_FORM: TemplateForm = {
   base_price: 24.99,
   in_stock: true,
   akd: { product_type: 'TSHIRT', manufacturer: 'yprint', series: 'SS25', print_method: 'DTG' },
+  measurements: DEFAULT_MEASUREMENTS,
   sizes: [],
   variations: {},
   pricing: {},
@@ -83,6 +88,7 @@ export default function TemplateEditorPage() {
           const t = data.data
           const rawVariations = t.variations || {}
           const akdRaw = rawVariations._akd || {}
+          const measurementsRaw = rawVariations._measurements || DEFAULT_MEASUREMENTS
           const variations = Object.fromEntries(
             Object.entries(rawVariations).filter(([k]) => !k.startsWith('_'))
           ) as Record<string, VariationData>
@@ -100,6 +106,10 @@ export default function TemplateEditorPage() {
               manufacturer: akdRaw.manufacturer || 'yprint',
               series: akdRaw.series || 'SS25',
               print_method: akdRaw.print_method || 'DTG',
+            },
+            measurements: {
+              per_size: measurementsRaw.per_size || {},
+              print_y_offset_mm: measurementsRaw.print_y_offset_mm ?? 60,
             },
             sizes: t.sizes || [],
             variations,
@@ -120,8 +130,11 @@ export default function TemplateEditorPage() {
     setError(null)
     setSaving(true)
     setSaved(false)
-    const { akd, variations, ...rest } = form
-    const payload = { ...rest, variations: { _akd: akd, ...variations } }
+    const { akd, measurements, variations, ...rest } = form
+    const payload = {
+      ...rest,
+      variations: { _akd: akd, _measurements: measurements, ...variations },
+    }
     try {
       const res = await fetch(
         isNew ? '/api/admin/templates' : `/api/admin/templates/${params.id}`,
@@ -261,16 +274,26 @@ export default function TemplateEditorPage() {
         </div>
       </Section>
 
-      {/* ── 4: Farben & Designs ── */}
-      <Section number={4} title="Farben & Ansichten" description="Jede Farbe kann mehrere Ansichten haben (z.B. Front, Rücken). Hier stellst du auch die Druckzonen ein.">
+      {/* ── 4: Maßtabelle ── */}
+      <Section number={4} title="Maßtabelle" description="Shirt-Abmessungen pro Größe — das System berechnet daraus präzise Druckkoordinaten für jede Bestellung">
+        <MeasurementsEditor
+          value={form.measurements}
+          onChange={v => set('measurements', v)}
+          printWidthCm={form.physical_width_cm}
+          printHeightCm={form.physical_height_cm}
+        />
+      </Section>
+
+      {/* ── 5: Farben & Designs ── */}
+      <Section number={5} title="Farben & Ansichten" description="Jede Farbe kann mehrere Ansichten haben (z.B. Front, Rücken). Hier stellst du auch die Druckzonen ein.">
         <VariationsEditor
           variations={form.variations}
           onChange={v => set('variations', v as Record<string, VariationData>)}
         />
       </Section>
 
-      {/* ── 5: Druckpartner ── */}
-      <Section number={5} title="Druckpartner-Konfiguration" description="Technische Einstellungen für die Übergabe an AllesKlarDruck — ändert sich selten">
+      {/* ── 6: Druckpartner ── */}
+      <Section number={6} title="Druckpartner-Konfiguration" description="Technische Einstellungen für die Übergabe an AllesKlarDruck — ändert sich selten">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Produkttyp</label>
