@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendVerificationEmail } from '@/lib/email/resend'
 
 export async function POST(request: Request) {
   let body: { email?: string }
@@ -14,19 +15,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'E-Mail erforderlich' }, { status: 400 })
   }
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
-  // Uses Supabase's own verified mailer — works without custom domain setup
-  const { error } = await supabase.auth.resend({
+  // For existing unconfirmed users, generateLink(signup) generates a new
+  // confirmation token without updating the password — safe to call with a placeholder.
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: 'signup',
     email,
-    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email` },
+    password: crypto.randomUUID(),
+    options: { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email` },
   })
 
-  if (error) {
-    console.error('[ResendVerification] resend error:', error.message)
+  if (linkError || !linkData?.properties?.action_link) {
+    console.error('[ResendVerification] generateLink error:', linkError?.message)
+    return NextResponse.json({ success: true })
   }
 
-  // Always return success to prevent email enumeration
+  await sendVerificationEmail(email, linkData.properties.action_link).catch(err => {
+    console.error('[ResendVerification] Email send error:', err?.message ?? err)
+  })
+
   return NextResponse.json({ success: true })
 }

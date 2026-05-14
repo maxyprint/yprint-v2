@@ -38,10 +38,7 @@ export default function VerifyEmailPage() {
           setError('Bestätigung fehlgeschlagen. Der Link ist möglicherweise abgelaufen.')
         } else {
           setStatus('success')
-          // Sign out after confirming — user should log in explicitly
-          supabase.auth.signOut().then(() => {
-            setTimeout(() => router.push('/login?verified=1'), 2000)
-          })
+          setTimeout(() => router.push('/dashboard'), 2000)
         }
       })
   }, [router])
