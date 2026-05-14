@@ -188,7 +188,7 @@ export default function DashboardPage() {
               >
                 {/* Clickable area */}
                 <Link
-                  href={`/designer?design=${design.id}`}
+                  href={`/designer?design_id=${design.id}`}
                   style={{ flex: 1, textDecoration: 'none', display: 'block' }}
                 >
                   <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden' }}>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
 
                   {/* Edit link */}
                   <Link
-                    href={`/designer?design=${design.id}`}
+                    href={`/designer?design_id=${design.id}`}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
