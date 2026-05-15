@@ -334,9 +334,9 @@ async function handleLoadDesign(userId: string, body: FormData) {
   return NextResponse.json({
     success: true,
     data: {
-      design_data: data.design_data,
+      design_data: data.design_data ? JSON.stringify(data.design_data) : null,
       template_id: data.template_id,
-      variations: data.variations,
+      variations: data.variations ? JSON.stringify(data.variations) : null,
       name: data.name,
     }
   })
