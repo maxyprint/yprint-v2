@@ -9,7 +9,7 @@ export interface CalibrationData {
   vField: string
   hLine: { y: number; x1: number; x2: number }   // % of image (0–100)
   vLine: { x: number; y1: number; y2: number }   // % of image (0–100)
-  printCenter: { x: number; y: number }           // % of image (0–100)
+  printTopLeft: { x: number; y: number }          // top-left corner of print zone, % of image (0–100)
 }
 
 interface Props {
@@ -31,7 +31,7 @@ type DragTarget =
   | { type: 'v-top' }
   | { type: 'v-bottom' }
   | { type: 'v-bar' }
-  | { type: 'print-center' }
+  | { type: 'print-zone' }
 
 interface DragState {
   target: DragTarget
@@ -77,7 +77,7 @@ export function CalibrationEditor({
         ...c,
         hLine: { ...c.hLine },
         vLine: { ...c.vLine },
-        printCenter: { ...c.printCenter },
+        printTopLeft: { ...c.printTopLeft },
       }
       switch (drag.target.type) {
         case 'h-left':
@@ -98,9 +98,10 @@ export function CalibrationEditor({
         case 'v-bar':
           next.vLine.x = clamp(c.vLine.x + dxPct, 5, 95)
           break
-        case 'print-center':
-          next.printCenter.x = clamp(c.printCenter.x + dxPct, 0, 100)
-          next.printCenter.y = clamp(c.printCenter.y + dyPct, 0, 100)
+        case 'print-zone':
+          // Move the top-left corner by the drag delta — size stays unchanged
+          next.printTopLeft.x = clamp(c.printTopLeft.x + dxPct, 0, 100)
+          next.printTopLeft.y = clamp(c.printTopLeft.y + dyPct, 0, 100)
           break
       }
       onChangeRef.current(next)
@@ -128,7 +129,7 @@ export function CalibrationEditor({
         ...calRef.current,
         hLine: { ...calRef.current.hLine },
         vLine: { ...calRef.current.vLine },
-        printCenter: { ...calRef.current.printCenter },
+        printTopLeft: { ...calRef.current.printTopLeft },
       },
       cW: rect.width,
       cH: rect.height,
@@ -151,14 +152,15 @@ export function CalibrationEditor({
     const widthPct  = physicalWidthCm  * (hPx / hRefCm) / naturalSize.w * 100
     const heightPct = physicalHeightCm * (vPx / vRefCm) / naturalSize.h * 100
     return {
-      left:   calibration.printCenter.x - widthPct  / 2,
-      top:    calibration.printCenter.y - heightPct / 2,
+      // top-left is STABLE — does not change when width/height change
+      left:   calibration.printTopLeft.x,
+      top:    calibration.printTopLeft.y,
       width:  widthPct,
       height: heightPct,
     }
   })()
 
-  const { hLine: hl, vLine: vl, printCenter: pc } = calibration
+  const { hLine: hl, vLine: vl } = calibration
   const hWidth  = hl.x2 - hl.x1
   const vHeight = vl.y2 - vl.y1
 
@@ -216,7 +218,7 @@ export function CalibrationEditor({
           <p className="text-xs text-[rgba(0,0,0,0.35)] mt-2.5">
             H-Linie auf genau <strong>{hRefCm} cm</strong> strecken ·
             V-Linie auf genau <strong>{vRefCm} cm</strong> strecken ·
-            Blauer Punkt = Print Zone Position (verschieben)
+            Blaues Rechteck = Print Zone (verschieben)
           </p>
         )}
         {(!measurements || !refM) && (
@@ -250,19 +252,24 @@ export function CalibrationEditor({
 
         {imageUrl && (
           <>
-            {/* ── Print Zone Rectangle (visual, pointerEvents:none) ── */}
+            {/* ── Print Zone Rectangle (draggable) ── */}
             {printZoneOverlay && (
-              <div style={{
-                position: 'absolute',
-                left:   `${printZoneOverlay.left}%`,
-                top:    `${printZoneOverlay.top}%`,
-                width:  `${printZoneOverlay.width}%`,
-                height: `${printZoneOverlay.height}%`,
-                background: 'rgba(0,121,255,0.08)',
-                border: '1.5px solid rgba(0,121,255,0.55)',
-                borderRadius: 2,
-                pointerEvents: 'none',
-              }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  left:   `${printZoneOverlay.left}%`,
+                  top:    `${printZoneOverlay.top}%`,
+                  width:  `${printZoneOverlay.width}%`,
+                  height: `${printZoneOverlay.height}%`,
+                  background: 'rgba(0,121,255,0.08)',
+                  border: '1.5px solid rgba(0,121,255,0.55)',
+                  borderRadius: 2,
+                  cursor: 'move',
+                  pointerEvents: 'auto',
+                  zIndex: 5,
+                }}
+                onMouseDown={e => startDrag({ type: 'print-zone' }, e)}
+              >
                 <span style={{
                   position: 'absolute',
                   top: 4, left: '50%',
@@ -274,33 +281,12 @@ export function CalibrationEditor({
                   padding: '1px 5px',
                   borderRadius: 3,
                   whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
                 }}>
                   {physicalWidthCm}×{physicalHeightCm} cm
                 </span>
               </div>
             )}
-
-            {/* ── Print Zone Center Drag Handle ── */}
-            <div
-              style={{
-                position: 'absolute',
-                left: `${pc.x}%`,
-                top:  `${pc.y}%`,
-                width: 22, height: 22,
-                transform: 'translate(-50%, -50%)',
-                background: '#0079FF',
-                border: '2.5px solid white',
-                borderRadius: '50%',
-                cursor: 'move',
-                pointerEvents: 'auto',
-                zIndex: 10,
-                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              onMouseDown={e => startDrag({ type: 'print-center' }, e)}
-            >
-              <div style={{ width: 4, height: 4, background: 'white', borderRadius: '50%' }} />
-            </div>
 
             {/* ── H-Line (blue horizontal, X-scale reference) ── */}
             <div style={{
@@ -426,8 +412,8 @@ export function CalibrationEditor({
           V-Linie = Y-Maßstab
         </div>
         <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.45)]">
-          <div className="w-3.5 h-3.5 rounded-full bg-[#0079FF] border-2 border-white shadow" />
-          Punkt = Print Zone Position
+          <div className="w-5 h-3.5 rounded-sm border border-[#0079FF] bg-[rgba(0,121,255,0.15)]" />
+          Rechteck = Print Zone (verschieben)
         </div>
       </div>
     </div>

@@ -95,25 +95,29 @@ export default function TemplateEditorPage() {
             vField: 'length_cm',
             hLine: { y: 42, x1: 10, x2: 90 },
             vLine: { x: 50, y1: 8, y2: 92 },
-            printCenter: { x: 50, y: 50 },
+            printTopLeft: { x: 35, y: 30 },
           }
           const DEFAULT_PRINT_ZONE = { left: 50, top: 50, width: 35, height: 42 }
 
-          // Normalize any old-format calibration ({chestLine, collarLine} or {shirtWidthPx, ...})
-          // to the new format ({hLine, vLine, printCenter, hField, vField})
+          // Normalize any old-format calibration to the current format ({hLine, vLine, printTopLeft})
           const normalizeCal = (cal: any) => {
             if (!cal) return DEFAULT_CAL
-            if (cal.hLine && cal.vLine && cal.printCenter) return cal  // already new format
+            if (cal.hLine && cal.vLine && cal.printTopLeft) return cal  // already current format
+            // Intermediate format: had printCenter instead of printTopLeft
+            if (cal.hLine && cal.vLine && cal.printCenter) {
+              const { printCenter, ...rest } = cal
+              return { ...rest, printTopLeft: { x: 35, y: 30 } }
+            }
             // Old format: chestLine + collarLine → map to hLine + vLine
             const chest = cal.chestLine
             if (chest?.x2 != null) {
               return {
-                referenceSize: cal.referenceSize ?? 'M',
+                referenceSize: cal.referenceSize ?? 'L',
                 hField: 'chest_cm',
                 vField: 'length_cm',
                 hLine: { y: chest.y ?? 42, x1: chest.x1 ?? 10, x2: chest.x2 ?? 90 },
                 vLine: { x: 50, y1: 8, y2: 92 },
-                printCenter: { x: 50, y: 50 },
+                printTopLeft: { x: 35, y: 30 },
               }
             }
             return DEFAULT_CAL

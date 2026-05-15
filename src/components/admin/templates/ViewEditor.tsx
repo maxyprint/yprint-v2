@@ -72,8 +72,14 @@ function calcPrintZone(
   const r  = (v: number) => Math.round(v * 10)  / 10
   const r3 = (v: number) => Math.round(v * 1000) / 1000
 
-  const cx = r((offsetX + cal.printCenter.x / 100 * naturalW * scale) / CANVAS_W * 100)
-  const cy = r((offsetY + cal.printCenter.y / 100 * naturalH * scale) / CANVAS_H * 100)
+  // Derive canvas center from printTopLeft (image-%) + half of print size
+  const widthImgPct   = printW_px / naturalW * 100
+  const heightImgPct  = printH_px / naturalH * 100
+  const centerX_img   = cal.printTopLeft.x + widthImgPct  / 2
+  const centerY_img   = cal.printTopLeft.y + heightImgPct / 2
+
+  const cx = r((offsetX + centerX_img / 100 * naturalW * scale) / CANVAS_W * 100)
+  const cy = r((offsetY + centerY_img / 100 * naturalH * scale) / CANVAS_H * 100)
 
   return {
     imageZone: { left: 50, top: 50, scaleX: r3(scale), scaleY: r3(scale), angle: 0 },

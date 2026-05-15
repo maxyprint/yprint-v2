@@ -34,7 +34,7 @@ const DEFAULT_VARIATION: VariationData = {
         vField: 'length_cm',
         hLine: { y: 42, x1: 10, x2: 90 },
         vLine: { x: 50, y1: 8, y2: 92 },
-        printCenter: { x: 50, y: 50 },
+        printTopLeft: { x: 35, y: 30 },
       },
     } as ViewData,
   },
