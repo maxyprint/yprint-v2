@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { deleteDesignCascade } from '@/lib/cleanup/delete-design'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -39,10 +40,17 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const { user, error: authError } = await requireAuth()
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Verify ownership before cascading
   const supabase = createAdminClient()
-  const { error } = await supabase
-    .from('user_designs').update({ is_enabled: false, updated_at: new Date().toISOString() })
-    .eq('id', id).eq('user_id', user.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { data: design } = await supabase
+    .from('user_designs').select('id').eq('id', id).eq('user_id', user.id).single()
+  if (!design) return NextResponse.json({ error: 'Design nicht gefunden.' }, { status: 404 })
+
+  try {
+    await deleteDesignCascade(id, user.id, supabase)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unbekannter Fehler'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }

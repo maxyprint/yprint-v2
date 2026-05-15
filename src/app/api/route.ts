@@ -45,7 +45,14 @@ export async function POST(request: Request) {
     case 'save_design': {
       const { user, error } = await requireAuthFromNonce(nonce)
       if (error) return error
-      return handleSaveDesign(user!.id, body)
+      const [result] = await Promise.all([
+        handleSaveDesign(user!.id, body),
+        createAdminClient()
+          .from('user_profiles')
+          .update({ last_active_at: new Date().toISOString() })
+          .eq('user_id', user!.id),
+      ])
+      return result
     }
     case 'load_design': {
       const { user, error } = await requireAuthFromNonce(nonce)

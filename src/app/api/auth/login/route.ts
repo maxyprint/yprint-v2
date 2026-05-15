@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
@@ -43,6 +44,12 @@ export async function POST(request: Request) {
       { status: 401 }
     )
   }
+
+  // Track login timestamp (non-blocking — don't fail the login if this fails)
+  void createAdminClient()
+    .from('user_profiles')
+    .update({ last_login_at: new Date().toISOString(), last_active_at: new Date().toISOString() })
+    .eq('user_id', data.user.id)
 
   return NextResponse.json({
     success: true,
