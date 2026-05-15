@@ -79,6 +79,7 @@ export async function generatePrintPNG(
     .toBuffer()
 
   const storagePath = `${userId}/${designId}/front_print.png`
+  await supabase.storage.createBucket('print-pngs', { public: true })
   const { error: uploadError } = await supabase.storage
     .from('print-pngs')
     .upload(storagePath, outputBuffer, { contentType: 'image/png', upsert: true })
