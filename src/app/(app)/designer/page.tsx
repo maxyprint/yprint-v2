@@ -241,6 +241,7 @@ function DesignerInner() {
       {fabricReady && readyToLoad && (
         <>
           <Script src="/designer/print-zone-png-generator.js" strategy="afterInteractive" />
+          <Script src="/designer/generate-png-for-save.js" strategy="afterInteractive" />
           <Script src="/designer/designer.bundle.js" strategy="afterInteractive" />
         </>
       )}
