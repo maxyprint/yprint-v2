@@ -196,7 +196,7 @@ async function handleUploadUserImage(userId: string, body: FormData) {
     public_url: publicUrl, image_type: 'gallery',
   })
 
-  return NextResponse.json({ success: true, data: { id: imageId, url: publicUrl, filename: file.name } })
+  return NextResponse.json({ success: true, data: { id: imageId, url: `/api/user-images/${storagePath}`, filename: file.name } })
 }
 
 async function handleDeleteUserImage(userId: string, body: FormData) {
@@ -222,13 +222,19 @@ async function handleGetUserImages(userId: string) {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('user_images')
-    .select('image_id, public_url, filename, image_type, created_at')
+    .select('image_id, storage_path, filename, image_type, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
   return NextResponse.json({
     success: true,
-    data: (data ?? []).map(img => ({ id: img.image_id, url: img.public_url, filename: img.filename }))
+    data: {
+      images: (data ?? []).map(img => ({
+        id:       img.image_id,
+        url:      `/api/user-images/${img.storage_path}`,
+        filename: img.filename,
+      }))
+    }
   })
 }
 
