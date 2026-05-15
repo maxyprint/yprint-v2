@@ -246,10 +246,15 @@ async function handleSaveDesign(userId: string, body: FormData) {
   const name = (body.get('design_name') as string) || 'Mein Design'
   const productName = (body.get('product_name') as string) || ''
   const variationsRaw = (body.get('variations') as string) || '{}'
-  const productImagesRaw = (body.get('product_images') as string) || '[]'
 
   let designData: unknown
   try { designData = JSON.parse(designDataRaw) } catch { designData = {} }
+
+  // Collect preview view IDs sent by the bundle (preview_image_{viewId} blobs)
+  const previewViewIds: string[] = []
+  for (const [key] of body.entries()) {
+    if (key.startsWith('preview_image_')) previewViewIds.push(key.slice('preview_image_'.length))
+  }
 
   const payload = {
     user_id: userId,
@@ -258,9 +263,11 @@ async function handleSaveDesign(userId: string, body: FormData) {
     product_name: productName,
     design_data: designData,
     variations: JSON.parse(variationsRaw),
-    product_images: JSON.parse(productImagesRaw),
     updated_at: new Date().toISOString(),
   }
+
+  let savedId: string
+  let createdAt: string
 
   if (designId && designId !== '0') {
     const { data, error } = await supabase
@@ -271,7 +278,8 @@ async function handleSaveDesign(userId: string, body: FormData) {
       .select('id, created_at')
       .single()
     if (error) return NextResponse.json({ success: false, data: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, data: { design_id: data.id, created_at: data.created_at } })
+    savedId = data.id
+    createdAt = data.created_at
   } else {
     const { data, error } = await supabase
       .from('user_designs')
@@ -279,8 +287,35 @@ async function handleSaveDesign(userId: string, body: FormData) {
       .select('id, created_at')
       .single()
     if (error) return NextResponse.json({ success: false, data: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, data: { design_id: data.id, created_at: data.created_at } })
+    savedId = data.id
+    createdAt = data.created_at
   }
+
+  // Upload canvas mockup previews and store as product_images
+  if (previewViewIds.length > 0) {
+    const productImages: { id: string; url: string; view_id: string; view_name: string }[] = []
+    for (const viewId of previewViewIds) {
+      const blob = body.get(`preview_image_${viewId}`) as File | null
+      const viewName = (body.get(`preview_view_name_${viewId}`) as string) || viewId
+      if (!blob || blob.size === 0) continue
+      const storagePath = `${userId}/previews/${savedId}_${viewId}.png`
+      const buf = Buffer.from(await blob.arrayBuffer())
+      const { error: upErr } = await supabase.storage
+        .from('user-images')
+        .upload(storagePath, buf, { contentType: 'image/png', upsert: true })
+      if (!upErr) {
+        productImages.push({ id: viewId, url: `/api/user-images/${storagePath}`, view_id: viewId, view_name: viewName })
+      }
+    }
+    if (productImages.length > 0) {
+      await supabase.from('user_designs')
+        .update({ product_images: productImages })
+        .eq('id', savedId)
+        .eq('user_id', userId)
+    }
+  }
+
+  return NextResponse.json({ success: true, data: { design_id: savedId, created_at: createdAt } })
 }
 
 async function handleLoadDesign(userId: string, body: FormData) {

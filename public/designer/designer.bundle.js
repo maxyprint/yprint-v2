@@ -2016,12 +2016,10 @@ class DesignerWidget {
     }
 
     async saveDesignWithPNGDisplay() {
-        // Call original save function but handle redirect differently
-        const originalSaveResult = await this.saveDesignInternal();
-
-        // Show PNG display instead of redirect
-        if (originalSaveResult && this._savedPNGs) {
-            this.showPNGDisplay(this._savedPNGs);
+        const success = await this.saveDesignInternal();
+        if (success) {
+            // Brief pause so the success toast is visible, then go to dashboard
+            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
         }
     }
 
