@@ -56,6 +56,61 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string) {
   })
 }
 
+export async function sendAdminOrderNotificationEmail(
+  orderNumber: string,
+  items: { name: string; quantity: number; size: string; price: number }[],
+  total: number,
+  shippingName: string,
+  shippingCity: string,
+  adminOrderUrl: string
+) {
+  const rowsHtml = items.map(i =>
+    `<tr>
+      <td style="padding:8px;border-bottom:1px solid #e5e5e5">${i.name}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e5e5;text-align:center">${i.quantity}× ${i.size}</td>
+      <td style="padding:8px;border-bottom:1px solid #e5e5e5;text-align:right">${i.price.toFixed(2)} €</td>
+    </tr>`
+  ).join('')
+
+  return send({
+    from: FROM,
+    to: 'max@yprint.de',
+    subject: `🖨 Neue Bestellung #${orderNumber} — An Drucker senden`,
+    html: `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e5">
+        <div style="background:#1d1d1f;padding:24px 32px">
+          <h1 style="color:#fff;margin:0;font-size:20px;font-weight:700">Neue Bestellung eingegangen</h1>
+          <p style="color:rgba(255,255,255,0.6);margin:4px 0 0;font-size:14px">#${orderNumber}</p>
+        </div>
+        <div style="padding:24px 32px">
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <thead>
+              <tr style="background:#f5f5f7">
+                <th style="padding:8px;text-align:left;font-size:12px;color:#666;font-weight:600">Produkt</th>
+                <th style="padding:8px;text-align:center;font-size:12px;color:#666;font-weight:600">Menge / Größe</th>
+                <th style="padding:8px;text-align:right;font-size:12px;color:#666;font-weight:600">Preis</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="padding:10px 8px;font-weight:700;font-size:15px">Gesamt</td>
+                <td style="padding:10px 8px;text-align:right;font-weight:700;font-size:15px">${total.toFixed(2)} €</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p style="margin:0 0 4px;color:#666;font-size:13px"><strong>Lieferung an:</strong> ${shippingName}, ${shippingCity}</p>
+          <div style="margin-top:24px">
+            <a href="${adminOrderUrl}" style="display:inline-block;background:#007aff;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+              Bestellung im Admin öffnen →
+            </a>
+          </div>
+        </div>
+      </div>
+    `,
+  })
+}
+
 export async function sendOrderConfirmationEmail(
   email: string,
   orderNumber: string,

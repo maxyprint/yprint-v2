@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { stripe } from '@/lib/stripe/client'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateOrderNumber } from '@/lib/utils'
-import { sendOrderConfirmationEmail } from '@/lib/email/resend'
+import { sendOrderConfirmationEmail, sendAdminOrderNotificationEmail } from '@/lib/email/resend'
 import { generatePrintPNG } from '@/lib/print/server-generate-print-png'
 
 export const dynamic = 'force-dynamic'
@@ -200,21 +200,36 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
     }
   }
 
+  type CartItemTyped = { design_name?: string; quantity: number; unit_price: number; size?: string }
+  const emailItems = (cartItems as CartItemTyped[]).map(i => ({
+    name: i.design_name || 'Design',
+    quantity: i.quantity,
+    size: i.size || '—',
+    price: i.unit_price,
+  }))
+
+  // Customer confirmation
   if (userId) {
     const { data: user } = await supabase.auth.admin.getUserById(userId)
     if (user?.user?.email) {
-      await sendOrderConfirmationEmail(
-        user.user.email,
-        orderNumber,
-        (cartItems as Array<{ design_name?: string; quantity: number; unit_price: number }>).map(i => ({
-          name: i.design_name || 'Design',
-          quantity: i.quantity,
-          price: i.unit_price,
-        })),
-        totalEuros
-      )
+      await sendOrderConfirmationEmail(user.user.email, orderNumber, emailItems, totalEuros)
     }
   }
+
+  // Admin notification
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.yprint.de'
+  const shippingName = shippingAddress
+    ? [shippingAddress.first_name, shippingAddress.last_name].filter(Boolean).join(' ')
+    : '—'
+  const shippingCity = (shippingAddress as Record<string, string> | null)?.city || '—'
+  void sendAdminOrderNotificationEmail(
+    orderNumber,
+    emailItems,
+    totalEuros,
+    shippingName,
+    shippingCity,
+    `${appUrl}/admin/orders/${order.id}`
+  )
 }
 
 async function handleSetupIntentSucceeded(si: Stripe.SetupIntent, supabase: ReturnType<typeof createAdminClient>) {
