@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+export const maxDuration = 60
+
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { user, error: authError } = await requireAuth()
