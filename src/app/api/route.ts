@@ -89,6 +89,10 @@ export async function POST(request: Request) {
 
 // ─── Handler implementations ──────────────────────────────────────────────────
 
+// Fixed canvas dimensions — must match the Fabric.js canvas in designer.bundle.js
+const DESIGNER_CANVAS_W = 616
+const DESIGNER_CANVAS_H = 626
+
 async function handleGetTemplates() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -121,6 +125,17 @@ async function handleGetTemplates() {
         Object.values(v.views as Record<string, any>).forEach((view: any) => {
           if (typeof view?.image_url === 'string' && view.image_url.startsWith(supabasePrefix)) {
             view.image_url = `/api/template-assets/${view.image_url.slice(supabasePrefix.length)}`
+          }
+          // Compute safeZone from printZone so the designer bundle gets the format it expects:
+          // left/top = center % (0–100), width/height = px on the 616×626 designer canvas.
+          // The bundle uses px for clipMask size, image initial scaling, and the visual print zone rect.
+          if (view?.printZone && view.printZone.width > 0 && view.printZone.height > 0) {
+            view.safeZone = {
+              left:   view.printZone.left,
+              top:    view.printZone.top,
+              width:  Math.round(view.printZone.width  / 100 * DESIGNER_CANVAS_W * 10) / 10,
+              height: Math.round(view.printZone.height / 100 * DESIGNER_CANVAS_H * 10) / 10,
+            }
           }
         })
       })

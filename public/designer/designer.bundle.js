@@ -680,8 +680,8 @@ class DesignerWidget {
         this.clipMask = new fabric.Rect({
             left: view.safeZone.left * this.fabricCanvas.width / 100,
             top: view.safeZone.top * this.fabricCanvas.height / 100,
-            width: view.safeZone.width * this.fabricCanvas.width / 100,
-            height: view.safeZone.height * this.fabricCanvas.height / 100,
+            width: view.safeZone.width,
+            height: view.safeZone.height,
             absolutePositioned: true,
             fill: 'transparent',
             selectable: false,
@@ -2553,8 +2553,8 @@ class DesignerWidget {
             const clipPath = new fabric.Rect({
                 left: view.safeZone.left * tempCanvas.width / 100,
                 top: view.safeZone.top * tempCanvas.height / 100,
-                width: view.safeZone.width * tempCanvas.width / 100,
-                height: view.safeZone.height * tempCanvas.height / 100,
+                width: view.safeZone.width * widthRatio,
+                height: view.safeZone.height * heightRatio,
                 absolutePositioned: true,
                 fill: 'transparent',
                 selectable: false,

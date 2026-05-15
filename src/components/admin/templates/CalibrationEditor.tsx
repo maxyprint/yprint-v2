@@ -219,7 +219,7 @@ export function CalibrationEditor({
 
       <div
         ref={containerRef}
-        className="relative w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] select-none overflow-hidden"
+        className="relative w-full rounded-xl border border-[#e5e7eb] bg-white select-none overflow-hidden"
       >
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
