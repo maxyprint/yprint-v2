@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuthFromNonce } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generateViewPNGFromDesignData, recordEmptyViewPNG } from '@/lib/print/server-generate-print-png'
 
 export async function POST(request: Request) {
   let body: FormData
@@ -67,6 +68,16 @@ export async function POST(request: Request) {
       const { user, error } = await requireAuthFromNonce(nonce)
       if (error) return error
       return handleGetExistingPNG(user!.id, body)
+    }
+    case 'yprint_generate_view_png': {
+      const { user, error } = await requireAuthFromNonce(nonce)
+      if (error) return error
+      return handleGenerateViewPNG(user!.id, body)
+    }
+    case 'yprint_record_empty_view': {
+      const { user, error } = await requireAuthFromNonce(nonce)
+      if (error) return error
+      return handleRecordEmptyView(user!.id, body)
     }
 
     // ── Template Metadata ────────────────────────────────────
@@ -481,4 +492,37 @@ async function handleGetTemplatePrintArea(body: FormData) {
       printable_area_mm: { width: data.physical_width_cm * 10, height: data.physical_height_cm * 10 },
     }
   })
+}
+
+async function handleGenerateViewPNG(userId: string, body: FormData) {
+  const designId = body.get('design_id') as string
+  const templateId = body.get('template_id') as string
+  const variationId = body.get('variation_id') as string
+  const viewId = body.get('view_id') as string
+  const viewName = (body.get('view_name') as string) || viewId
+
+  if (!designId || !templateId || !variationId || !viewId) {
+    return NextResponse.json({ success: false, data: 'Missing required fields' }, { status: 400 })
+  }
+
+  const url = await generateViewPNGFromDesignData(designId, userId, templateId, variationId, viewId, viewName)
+  if (!url) {
+    return NextResponse.json({ success: false, data: 'Generation failed or view is empty' }, { status: 422 })
+  }
+  return NextResponse.json({ success: true, data: { png_url: url, view_id: viewId } })
+}
+
+async function handleRecordEmptyView(userId: string, body: FormData) {
+  void userId
+  const designId = body.get('design_id') as string
+  const templateId = body.get('template_id') as string | null
+  const viewId = body.get('view_id') as string
+  const viewName = (body.get('view_name') as string) || viewId
+
+  if (!designId || !viewId) {
+    return NextResponse.json({ success: false, data: 'Missing required fields' }, { status: 400 })
+  }
+
+  await recordEmptyViewPNG(designId, templateId, viewId, viewName)
+  return NextResponse.json({ success: true, data: { view_id: viewId, has_content: false } })
 }
