@@ -382,7 +382,8 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
 
   const { data: { publicUrl } } = supabase.storage.from('print-pngs').getPublicUrl(storagePath)
 
-  await supabase.from('design_pngs').upsert({
+  await supabase.from('design_pngs').delete().eq('design_id', designId).eq('view_id', viewId)
+  await supabase.from('design_pngs').insert({
     design_id: designId,
     view_id: viewId,
     view_name: viewName,
@@ -393,7 +394,7 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
     print_area_mm: JSON.parse(printAreaMmRaw),
     metadata: JSON.parse(metadataRaw),
     save_type: 'designer',
-  }, { onConflict: 'design_id,view_id' })
+  })
 
   // Update print_file_url on the design (primary view)
   if (viewId === 'front' || viewId === 'view_1') {

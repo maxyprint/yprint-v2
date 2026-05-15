@@ -86,24 +86,22 @@ export async function generatePrintPNG(
 
   const { data: { publicUrl } } = supabase.storage.from('print-pngs').getPublicUrl(storagePath)
 
-  await supabase.from('design_pngs').upsert(
-    {
-      design_id: designId,
-      view_id: 'front',
-      view_name: 'Front',
-      storage_path: storagePath,
-      public_url: publicUrl,
-      template_id: templateId,
-      print_area_px: printZone,
-      print_area_mm: {
-        width: (printZone.width / 72) * 25.4,
-        height: (printZone.height / 72) * 25.4,
-      },
-      save_type: 'auto',
-      generated_at: new Date().toISOString(),
+  await supabase.from('design_pngs').delete().eq('design_id', designId).eq('view_id', 'front')
+  await supabase.from('design_pngs').insert({
+    design_id: designId,
+    view_id: 'front',
+    view_name: 'Front',
+    storage_path: storagePath,
+    public_url: publicUrl,
+    template_id: templateId,
+    print_area_px: printZone,
+    print_area_mm: {
+      width: (printZone.width / 72) * 25.4,
+      height: (printZone.height / 72) * 25.4,
     },
-    { onConflict: 'design_id,view_id' }
-  )
+    save_type: 'auto',
+    generated_at: new Date().toISOString(),
+  })
 
   await supabase.from('user_designs').update({ print_file_url: publicUrl }).eq('id', designId)
 
