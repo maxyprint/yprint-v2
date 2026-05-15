@@ -89,9 +89,36 @@ export default function TemplateEditorPage() {
           const rawVariations = t.variations || {}
           const akdRaw = rawVariations._akd || {}
           const measurementsRaw = rawVariations._measurements || DEFAULT_MEASUREMENTS
-          const DEFAULT_CAL = { chestLine: { y: 35, x1: 10, x2: 90 }, collarLine: { y: 8 }, referenceSize: 'M' }
-          const DEFAULT_VIEW_ZONE = { left: 10, top: 5, width: 480, height: 680 }
-          const DEFAULT_PRINT_ZONE = { left: 30, top: 29, width: 240, height: 260 }
+          const DEFAULT_CAL = {
+            referenceSize: 'M',
+            hField: 'chest_cm',
+            vField: 'rib_height_cm',
+            hLine: { y: 42, x1: 10, x2: 90 },
+            vLine: { x: 50, y1: 28, y2: 36 },
+            printCenter: { x: 50, y: 50 },
+          }
+          const DEFAULT_PRINT_ZONE = { left: 50, top: 50, width: 35, height: 42 }
+
+          // Normalize any old-format calibration ({chestLine, collarLine} or {shirtWidthPx, ...})
+          // to the new format ({hLine, vLine, printCenter, hField, vField})
+          const normalizeCal = (cal: any) => {
+            if (!cal) return DEFAULT_CAL
+            if (cal.hLine && cal.vLine && cal.printCenter) return cal  // already new format
+            // Old format: chestLine + collarLine → map to hLine + vLine
+            const chest = cal.chestLine
+            if (chest?.x2 != null) {
+              return {
+                referenceSize: cal.referenceSize ?? 'M',
+                hField: 'chest_cm',
+                vField: 'rib_height_cm',
+                hLine: { y: chest.y ?? 42, x1: chest.x1 ?? 10, x2: chest.x2 ?? 90 },
+                vLine: { x: 50, y1: (cal.collarLine?.y ?? 28), y2: (cal.collarLine?.y ?? 28) + 8 },
+                printCenter: { x: 50, y: 50 },
+              }
+            }
+            return DEFAULT_CAL
+          }
+
           const variations = Object.fromEntries(
             Object.entries(rawVariations)
               .filter(([k]) => !k.startsWith('_'))
@@ -99,14 +126,10 @@ export default function TemplateEditorPage() {
                 ...v,
                 views: Object.fromEntries(
                   Object.entries(v.views || {}).map(([vk, view]: [string, any]) => {
-                    // Migrate old calibration shape {shirtWidthPx, shirtLeftPct, ...} → new {chestLine, collarLine}
-                    let cal = view.calibration
-                    if (!cal?.chestLine) cal = DEFAULT_CAL
                     return [vk, {
                       ...view,
-                      safeZone:    view.safeZone   ?? DEFAULT_VIEW_ZONE,
                       printZone:   view.printZone  ?? DEFAULT_PRINT_ZONE,
-                      calibration: cal,
+                      calibration: normalizeCal(view.calibration),
                     }]
                   })
                 ),
