@@ -1,16 +1,15 @@
 // DPI quality check for uploaded images.
-// Fires when the user selects a file in the upload input — before the upload completes.
-// Calculates the effective print DPI if the image were to fill the entire print zone.
-// (If filling the zone already falls below threshold, any smaller placement will be worse.)
+// Shows a card notification on file-select and a brief pill when image lands on canvas.
 ;(function () {
   const CANVAS_W = 616
   const CANVAS_H = 626
+  const DPI_GREAT = 300
+  const DPI_OK    = 200
+  const DPI_WARN  = 150
 
-  // Thresholds for T-shirt DTG / screen printing
-  const DPI_GREAT  = 300   // ideal
-  const DPI_OK     = 200   // acceptable
-  const DPI_WARN   = 150   // noticeable at large sizes
-  // below 150 = clearly pixelated
+  var lastResult   = null
+  var lastUploadAt = 0
+  var dismissTimer = null
 
   // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -18,157 +17,212 @@
     return new Promise(function (resolve) {
       var url = URL.createObjectURL(file)
       var img = new Image()
-      img.onload = function () {
-        URL.revokeObjectURL(url)
-        resolve({ w: img.naturalWidth, h: img.naturalHeight })
-      }
-      img.onerror = function () {
-        URL.revokeObjectURL(url)
-        resolve({ w: 0, h: 0 })
-      }
+      img.onload  = function () { URL.revokeObjectURL(url); resolve({ w: img.naturalWidth,  h: img.naturalHeight  }) }
+      img.onerror = function () { URL.revokeObjectURL(url); resolve({ w: 0, h: 0 }) }
       img.src = url
     })
   }
 
-  // Returns { widthCm, heightCm } of the current view's print zone, or null.
   function getPrintZonePhysical() {
     var instance = window.designerInstance
     if (!instance) return null
-
-    var templateId  = instance.activeTemplateId
-    var variationId = instance.currentVariation
-    var viewId      = instance.currentView
-
-    var tmpl = instance.templates && instance.templates.get(templateId)
-    if (!tmpl) return null
-
-    var physW = tmpl.physical_width_cm
-    var physH = tmpl.physical_height_cm
-    if (!physW || !physH) return null
-
-    var variation = tmpl.variations && tmpl.variations.get(variationId)
-    var view      = variation && variation.views && variation.views.get(viewId)
+    var tmpl = instance.templates && instance.templates.get(instance.activeTemplateId)
+    if (!tmpl || !tmpl.physical_width_cm || !tmpl.physical_height_cm) return null
+    var variation = tmpl.variations && tmpl.variations.get(instance.currentVariation)
+    var view      = variation && variation.views && variation.views.get(instance.currentView)
     var sz        = view && view.safeZone
     if (!sz || !sz.width || !sz.height) return null
-
     return {
-      widthCm:  (sz.width  / CANVAS_W) * physW,
-      heightCm: (sz.height / CANVAS_H) * physH,
+      widthCm:  (sz.width  / CANVAS_W) * tmpl.physical_width_cm,
+      heightCm: (sz.height / CANVAS_H) * tmpl.physical_height_cm,
     }
   }
 
-  // Effective DPI if the image were sized to fill the print zone exactly.
-  function calcDPI(imgW, imgH, zoneCm) {
-    var dpiX = imgW / (zoneCm.widthCm  / 2.54)
-    var dpiY = imgH / (zoneCm.heightCm / 2.54)
-    return Math.min(dpiX, dpiY)
+  function calcDPI(imgW, imgH, zone) {
+    return Math.min(imgW / (zone.widthCm / 2.54), imgH / (zone.heightCm / 2.54))
   }
 
-  // Max size (cm) the image can be printed at the given minimum DPI.
-  function maxPrintSize(imgW, imgH, minDPI) {
-    return {
-      w: (imgW / minDPI) * 2.54,
-      h: (imgH / minDPI) * 2.54,
-    }
+  function maxPrintCm(imgW, imgH) {
+    return { w: (imgW / DPI_OK) * 2.54, h: (imgH / DPI_OK) * 2.54 }
   }
 
   // ── UI ───────────────────────────────────────────────────────────────────────
 
-  function removeWarning() {
-    var el = document.getElementById('yprint-dpi-warning')
-    if (el) el.remove()
+  function removeCard() {
+    clearTimeout(dismissTimer)
+    var el = document.getElementById('yprint-dpi-card')
+    if (!el) return
+    el.style.opacity = '0'
+    el.style.transform = 'translateX(-50%) translateY(6px)'
+    setTimeout(function () { if (el.parentNode) el.remove() }, 220)
   }
 
-  function showWarning(dpi, imgW, imgH) {
-    removeWarning()
+  function removePill() {
+    var el = document.getElementById('yprint-dpi-pill')
+    if (!el) return
+    el.style.opacity = '0'
+    setTimeout(function () { if (el.parentNode) el.remove() }, 200)
+  }
 
-    var bg, emoji, headline, sub
-    var max = maxPrintSize(imgW, imgH, DPI_OK)
+  // Full card — shown on file select
+  function showCard(dpi, imgW, imgH) {
+    removeCard()
+    removePill()
+    if (dpi >= DPI_GREAT) return
 
-    if (dpi >= DPI_GREAT) {
-      return // silent — great quality
-    } else if (dpi >= DPI_OK) {
-      bg = '#f59e0b'
-      emoji = '⚠️'
-      headline = 'Bildqualität ausreichend (' + Math.round(dpi) + ' DPI)'
-      sub = 'Für beste Druckergebnisse empfehlen wir min. 300 DPI. ' +
-            'Bei voller Druckzonengröße kann das Bild leicht unscharf wirken.'
+    var dotColor, quality, detail
+    var max = maxPrintCm(imgW, imgH)
+
+    if (dpi >= DPI_OK) {
+      dotColor = '#f59e0b'
+      quality  = 'Ausreichend (' + Math.round(dpi) + ' DPI)'
+      detail   = 'Für optimale Druckqualität min. 300 DPI empfohlen.'
     } else if (dpi >= DPI_WARN) {
-      bg = '#ef4444'
-      emoji = '⚠️'
-      headline = 'Niedrige Auflösung (' + Math.round(dpi) + ' DPI)'
-      sub = 'Das Bild kann im Druck pixelig wirken. ' +
-            'Empfohlene max. Druckgröße: ' +
-            max.w.toFixed(1) + ' × ' + max.h.toFixed(1) + ' cm.'
+      dotColor = '#ef4444'
+      quality  = 'Niedrig (' + Math.round(dpi) + ' DPI)'
+      detail   = 'Empf. max. Druckgröße: ' + max.w.toFixed(1) + ' × ' + max.h.toFixed(1) + ' cm'
     } else {
-      bg = '#b91c1c'
-      emoji = '🚨'
-      headline = 'Sehr niedrige Auflösung (' + Math.round(dpi) + ' DPI)'
-      sub = 'Das Bild wird im Druck stark pixelig erscheinen. ' +
-            'Bitte eine Datei mit höherer Auflösung verwenden. ' +
-            'Empfohlene max. Druckgröße: ' +
-            max.w.toFixed(1) + ' × ' + max.h.toFixed(1) + ' cm.'
+      dotColor = '#b91c1c'
+      quality  = 'Sehr niedrig (' + Math.round(dpi) + ' DPI)'
+      detail   = 'Bild wirkt im Druck pixelig – max. ' + max.w.toFixed(1) + ' × ' + max.h.toFixed(1) + ' cm'
     }
 
     var el = document.createElement('div')
-    el.id = 'yprint-dpi-warning'
+    el.id = 'yprint-dpi-card'
     el.style.cssText = [
       'position:fixed',
-      'bottom:90px',
+      'bottom:80px',
       'left:50%',
-      'transform:translateX(-50%)',
-      'background:' + bg,
+      'transform:translateX(-50%) translateY(6px)',
+      'background:rgba(15,15,15,0.86)',
+      'backdrop-filter:blur(14px)',
+      '-webkit-backdrop-filter:blur(14px)',
       'color:#fff',
-      'padding:14px 20px',
-      'border-radius:10px',
-      'font-size:13px',
-      'font-family:sans-serif',
-      'max-width:380px',
-      'width:calc(100% - 40px)',
-      'text-align:center',
+      'padding:11px 16px 11px 13px',
+      'border-radius:13px',
+      'font-size:12.5px',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      'max-width:340px',
+      'width:calc(100% - 48px)',
       'z-index:999999',
-      'box-shadow:0 4px 20px rgba(0,0,0,0.35)',
-      'line-height:1.45',
+      'box-shadow:0 4px 24px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.07)',
       'cursor:pointer',
+      'opacity:0',
+      'transition:opacity 0.2s ease,transform 0.22s ease',
+      'display:flex',
+      'flex-direction:column',
+      'gap:4px',
     ].join(';')
 
     el.innerHTML =
-      '<div style="font-weight:700;margin-bottom:5px">' + emoji + ' ' + headline + '</div>' +
-      '<div style="opacity:.92">' + sub + '</div>' +
-      '<div style="margin-top:8px;font-size:11px;opacity:.75">Zum Schließen tippen</div>'
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-top:1px"></span>' +
+        '<span style="font-weight:600;line-height:1.3">Bildqualität: ' + quality + '</span>' +
+        '<span style="margin-left:auto;opacity:0.35;font-size:14px;padding-left:8px">✕</span>' +
+      '</div>' +
+      '<div style="padding-left:16px;opacity:0.65;font-size:11.5px;line-height:1.4">' + detail + '</div>'
 
-    el.addEventListener('click', removeWarning)
+    el.addEventListener('click', removeCard)
     document.body.appendChild(el)
 
-    // Auto-dismiss after 10 s
-    setTimeout(removeWarning, 10000)
+    requestAnimationFrame(function () {
+      el.style.opacity = '1'
+      el.style.transform = 'translateX(-50%) translateY(0)'
+    })
+
+    dismissTimer = setTimeout(removeCard, 8000)
   }
 
-  // ── attach ────────────────────────────────────────────────────────────────────
+  // Small pill — shown when the image actually lands on the canvas
+  function showPill(dpi) {
+    removePill()
+    if (dpi >= DPI_GREAT) return
 
-  function tryAttach() {
+    var dotColor = dpi >= DPI_OK ? '#f59e0b' : (dpi >= DPI_WARN ? '#ef4444' : '#b91c1c')
+    var label    = dpi >= DPI_OK ? 'Ausreichend' : (dpi >= DPI_WARN ? 'Niedrige Auflösung' : 'Sehr niedrige Auflösung')
+
+    var el = document.createElement('div')
+    el.id = 'yprint-dpi-pill'
+    el.style.cssText = [
+      'position:fixed',
+      'bottom:80px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'background:rgba(15,15,15,0.80)',
+      'backdrop-filter:blur(10px)',
+      '-webkit-backdrop-filter:blur(10px)',
+      'color:#fff',
+      'padding:6px 13px',
+      'border-radius:999px',
+      'font-size:11.5px',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      'white-space:nowrap',
+      'z-index:999999',
+      'box-shadow:0 2px 12px rgba(0,0,0,0.25),0 0 0 1px rgba(255,255,255,0.07)',
+      'display:flex',
+      'align-items:center',
+      'gap:7px',
+      'opacity:1',
+      'transition:opacity 0.2s ease',
+      'pointer-events:none',
+    ].join(';')
+
+    el.innerHTML =
+      '<span style="width:6px;height:6px;border-radius:50%;background:' + dotColor + ';flex-shrink:0"></span>' +
+      '<span style="opacity:0.7">Auflösung:</span>' +
+      '<span style="font-weight:600">' + Math.round(dpi) + ' DPI – ' + label + '</span>'
+
+    document.body.appendChild(el)
+    setTimeout(function () { removePill() }, 4000)
+  }
+
+  // ── attach upload input ───────────────────────────────────────────────────────
+
+  var inputAttached  = false
+  var canvasAttached = false
+
+  function tryAttachInput() {
     var input = document.getElementById('uploadInput')
-    if (!input || input._dpiCheckerAttached) return false
-
-    input._dpiCheckerAttached = true
+    if (!input) return false
     input.addEventListener('change', function (e) {
       var file = e.target && e.target.files && e.target.files[0]
       if (!file || !file.type.startsWith('image/')) return
-
       getImageDimensions(file).then(function (dim) {
         if (!dim.w || !dim.h) return
         var zone = getPrintZonePhysical()
         if (!zone) return
         var dpi = calcDPI(dim.w, dim.h, zone)
-        showWarning(dpi, dim.w, dim.h)
+        lastResult   = { dpi: dpi, w: dim.w, h: dim.h }
+        lastUploadAt = Date.now()
+        showCard(dpi, dim.w, dim.h)
       })
     })
     return true
   }
 
-  // Retry until the upload input exists in the DOM
+  // ── attach Fabric canvas object:added ─────────────────────────────────────────
+
+  function tryAttachCanvas() {
+    var instance = window.designerInstance
+    var canvas   = instance && instance.canvas
+    if (!canvas) return false
+    canvas.on('object:added', function (e) {
+      // Only react within 10 s of the last file-select event
+      if (!lastResult || Date.now() - lastUploadAt > 10000) return
+      var obj = e.target
+      if (!obj || obj.type !== 'image') return
+      removeCard()
+      showPill(lastResult.dpi)
+      lastResult = null
+    })
+    return true
+  }
+
+  // Retry until both are attached
   var attempts = 0
   var iv = setInterval(function () {
-    if (tryAttach() || ++attempts > 40) clearInterval(iv)
+    if (!inputAttached)  inputAttached  = tryAttachInput()
+    if (!canvasAttached) canvasAttached = tryAttachCanvas()
+    if ((inputAttached && canvasAttached) || ++attempts > 60) clearInterval(iv)
   }, 300)
 })()
