@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         .from('design_pngs')
         .select('public_url')
         .eq('design_id', item.design_id)
-        .in('view_id', ['front', 'view_1'])
+
         .order('generated_at', { ascending: false })
         .limit(1)
         .single()
