@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { MeasurementsData } from '@/lib/print/calcCoords'
 
 export interface CalibrationData {
@@ -22,6 +22,7 @@ interface Props {
   measurements: MeasurementsData | null
   physicalWidthCm: number
   physicalHeightCm: number
+  printZoneSizePct: { w: number; h: number } | null  // stored size in image-%, null until first apply
 }
 
 type DragTarget =
@@ -56,12 +57,12 @@ export function CalibrationEditor({
   measurements,
   physicalWidthCm,
   physicalHeightCm,
+  printZoneSizePct,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
   const calRef = useRef(calibration)
   const onChangeRef = useRef(onChange)
-  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
   useEffect(() => { calRef.current = calibration }, [calibration])
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
@@ -141,24 +142,14 @@ export function CalibrationEditor({
   const hRefCm = refM ? (refM as unknown as Record<string, number>)[calibration.hField] ?? null : null
   const vRefCm = refM ? (refM as unknown as Record<string, number>)[calibration.vField] ?? null : null
 
-  // Print zone overlay size in image-% (purely for visual representation)
-  const printZoneOverlay = (() => {
-    if (!naturalSize || !measurements) return null
-    if (!refM) return null
-    if (!hRefCm || !vRefCm) return null
-    const hPx = (calibration.hLine.x2 - calibration.hLine.x1) / 100 * naturalSize.w
-    const vPx = (calibration.vLine.y2 - calibration.vLine.y1) / 100 * naturalSize.h
-    if (hPx <= 0 || vPx <= 0) return null
-    const widthPct  = physicalWidthCm  * (hPx / hRefCm) / naturalSize.w * 100
-    const heightPct = physicalHeightCm * (vPx / vRefCm) / naturalSize.h * 100
-    return {
-      // top-left is STABLE — does not change when width/height change
-      left:   calibration.printTopLeft.x,
-      top:    calibration.printTopLeft.y,
-      width:  widthPct,
-      height: heightPct,
-    }
-  })()
+  // Overlay uses the STORED size (calculated once via "Kalibrierung anwenden" button).
+  // Moving calibration lines never changes this — only position drag does.
+  const printZoneOverlay = printZoneSizePct ? {
+    left:   calibration.printTopLeft.x,
+    top:    calibration.printTopLeft.y,
+    width:  printZoneSizePct.w,
+    height: printZoneSizePct.h,
+  } : null
 
   const { hLine: hl, vLine: vl } = calibration
   const hWidth  = hl.x2 - hl.x1
@@ -239,14 +230,27 @@ export function CalibrationEditor({
             draggable={false}
             onLoad={e => {
               const img = e.currentTarget
-              const ns = { w: img.naturalWidth, h: img.naturalHeight }
-              setNaturalSize(ns)
               onNaturalSize(img.naturalWidth, img.naturalHeight)
             }}
           />
         ) : (
           <div className="flex items-center justify-center h-64 text-sm text-[rgba(0,0,0,0.3)]">
             Bild hochladen um Kalibrierung zu starten
+          </div>
+        )}
+
+        {imageUrl && !printZoneSizePct && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            paddingBottom: 12, pointerEvents: 'none',
+          }}>
+            <span style={{
+              background: 'rgba(0,0,0,0.55)', color: '#fff',
+              fontSize: 11, padding: '4px 10px', borderRadius: 6,
+            }}>
+              Linien setzen, dann „Kalibrierung anwenden" klicken
+            </span>
           </div>
         )}
 

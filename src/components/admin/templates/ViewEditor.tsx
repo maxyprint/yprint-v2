@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { CalibrationEditor, CalibrationData } from './CalibrationEditor'
 import { MeasurementsData } from '@/lib/print/calcCoords'
 
@@ -98,21 +98,25 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
-  const applyCalc = useCallback((cal: CalibrationData, ns: { w: number; h: number } | null) => {
-    if (!ns || !measurements) {
-      onChange({ ...view, calibration: cal })
-      return
-    }
-    const result = calcPrintZone(cal, measurements, printWidthCm, printHeightCm, ns.w, ns.h)
-    if (result) {
-      onChange({ ...view, calibration: cal, imageZone: result.imageZone, printZone: result.printZone })
-    } else {
-      onChange({ ...view, calibration: cal })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measurements, printWidthCm, printHeightCm, view])
+  // Only update calibration data — size is recalculated explicitly via the button below
+  const handleCalibrationChange = (cal: CalibrationData) => onChange({ ...view, calibration: cal })
 
-  const handleCalibrationChange = (cal: CalibrationData) => applyCalc(cal, naturalSize)
+  // One-shot calculation: pxPerCm from calibration lines → printZone dimensions
+  const applyCalibration = () => {
+    if (!naturalSize || !measurements) return
+    const result = calcPrintZone(view.calibration, measurements, printWidthCm, printHeightCm, naturalSize.w, naturalSize.h)
+    if (result) onChange({ ...view, imageZone: result.imageZone, printZone: result.printZone })
+  }
+
+  // Convert stored printZone canvas-% back to image-% for the CalibrationEditor overlay
+  const printZoneSizePct = useMemo(() => {
+    if (!naturalSize || view.printZone.width <= 0 || view.printZone.height <= 0) return null
+    const scale = Math.min(CANVAS_W / naturalSize.w, CANVAS_H / naturalSize.h)
+    return {
+      w: view.printZone.width  / 100 * CANVAS_W / scale / naturalSize.w * 100,
+      h: view.printZone.height / 100 * CANVAS_H / scale / naturalSize.h * 100,
+    }
+  }, [view.printZone.width, view.printZone.height, naturalSize])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -258,8 +262,9 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
           <div className="mb-3">
             <p className="text-sm font-semibold text-[#1d1d1f]">Kalibrierung &amp; Print Zone</p>
             <p className="text-xs text-[rgba(0,0,0,0.4)] mt-0.5">
-              H-Linie (blau) auf die Referenzbreite ziehen, V-Linie (orange) auf die Referenzhöhe.
-              Print Zone (Punkt) auf die gewünschte Druckposition verschieben — Größe wird aus physischen Maßen berechnet.
+              1. H-Linie auf die Referenzbreite ziehen, V-Linie auf die Referenzhöhe. &nbsp;
+              2. "Kalibrierung anwenden" klicken → Größe wird einmalig aus physischen Maßen berechnet. &nbsp;
+              3. Print Zone auf die gewünschte Druckposition ziehen.
             </p>
           </div>
           <CalibrationEditor
@@ -272,12 +277,23 @@ export function ViewEditor({ viewId, view, onChange, onRemove, measurements, pri
             measurements={measurements}
             physicalWidthCm={printWidthCm}
             physicalHeightCm={printHeightCm}
+            printZoneSizePct={printZoneSizePct}
           />
-          {!measurements && (
-            <p className="text-xs text-amber-500 mt-2">
-              Maßtabelle noch nicht gesetzt (Section 4) — Print Zone kann erst berechnet werden wenn Maße vorhanden.
-            </p>
-          )}
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={applyCalibration}
+              disabled={!measurements || !naturalSize}
+              className="px-4 py-2 text-sm font-medium bg-[#0079FF] text-white rounded-xl hover:bg-[#0066dd] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Kalibrierung anwenden
+            </button>
+            {!measurements && (
+              <p className="text-xs text-amber-500">
+                Maßtabelle fehlt (Abschnitt 4) — erst eintragen, dann kalibrieren.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
