@@ -1087,46 +1087,50 @@ class DesignerWidget {
         
         preview.addEventListener('click', () => {
             if (this.isMobile) this.sectionItemsContainer.classList.toggle('hidden', true);
-        
+
             fabric.Image.fromURL(imageUrl, (img) => {
-                const template = this.templates.get(this.activeTemplateId);
-                const variation = template.variations.get(this.currentVariation.toString());
-                const view = variation.views.get(this.currentView);
-                const safeZone = view.safeZone;
+                try {
+                    const template = this.templates.get(this.activeTemplateId);
+                    const variation = template.variations.get(this.currentVariation.toString());
+                    const view = variation.views.get(this.currentView);
+                    const safeZone = view?.safeZone;
 
-                const scaleX = safeZone.width / img.width;
-                const scaleY = safeZone.height / img.height;
-                const scale = Math.min(scaleX, scaleY, 1);
+                    // Scale to fit within the print zone, never upscale beyond 1
+                    const scaleX = safeZone && img.width  > 0 ? safeZone.width  / img.width  : 0.5;
+                    const scaleY = safeZone && img.height > 0 ? safeZone.height / img.height : 0.5;
+                    const scale = Math.min(scaleX, scaleY, 1);
 
-                img.set({
-                    left: this.fabricCanvas.width / 2,
-                    top: this.fabricCanvas.height / 2,
-                    originX: 'center',
-                    originY: 'center',
-                    scaleX: scale,
-                    scaleY: scale,
-                    // Remove other styling properties that will be set in configureAndLoadFabricImage
-                });
+                    // Center of the print zone on canvas (fall back to canvas center)
+                    const cx = safeZone ? safeZone.left * this.fabricCanvas.width / 100 : this.fabricCanvas.width / 2;
+                    const cy = safeZone ? safeZone.top  * this.fabricCanvas.height / 100 : this.fabricCanvas.height / 2;
 
-                // Generate unique ID for the image
-                const imageId = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-                img.data = { imageId };
+                    img.set({
+                        left: cx,
+                        top: cy,
+                        originX: 'center',
+                        originY: 'center',
+                        scaleX: scale,
+                        scaleY: scale,
+                        cornerSize: 10,
+                        cornerStyle: 'circle',
+                        transparentCorners: false,
+                        cornerColor: '#007cba',
+                        borderColor: '#007cba',
+                        cornerStrokeColor: '#fff',
+                        padding: 5,
+                        opacity: 1,
+                    });
 
-                // Store the image in our data structure
-                this.storeViewImage(imageUrl, img);
-
-                // Instead of adding directly to canvas, use our loading method
-                // which will properly apply all styles, filters, and clipping
-                this.loadViewImage();
-
-                // After loading, select the last added image
-                const key = `${this.currentVariation}_${this.currentView}`;
-                const imagesArray = this.variationImages.get(key) || [];
-                const addedImageData = imagesArray[imagesArray.length - 1];
-
-                if (addedImageData && addedImageData.fabricImage) {
-                    this.fabricCanvas.setActiveObject(addedImageData.fabricImage);
+                    // Add directly to canvas so it's immediately visible
+                    this.fabricCanvas.add(img);
+                    this.fabricCanvas.setActiveObject(img);
                     this.fabricCanvas.renderAll();
+
+                    // Store for persistence across view switches
+                    this.storeViewImage(imageUrl, img);
+                    this.bindImageEvents(img);
+                } catch (err) {
+                    console.error('[Designer] Error adding image to canvas:', err);
                 }
             });
         });
