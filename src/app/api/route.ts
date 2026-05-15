@@ -374,6 +374,7 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
   const storagePath = `${userId}/${designId}/${viewId}_print.png`
 
   await supabase.storage.createBucket('print-pngs', { public: true })
+  await supabase.storage.updateBucket('print-pngs', { public: true })
 
   const { error: uploadError } = await supabase.storage
     .from('print-pngs')
