@@ -49,6 +49,13 @@ const DEFAULT_FORM: TemplateForm = {
 const AKD_PRODUCT_TYPES = ['TSHIRT', 'HOODIE', 'LONGSLEEVE', 'SWEATSHIRT', 'TANKTOP', 'POLO']
 const AKD_PRINT_METHODS = ['DTG', 'DTF', 'Screen', 'Embroidery']
 
+const PRINT_ZONE_PRESETS = [
+  { label: 'Regular',      w: 30, h: 40, note: 'Standard DTG' },
+  { label: 'Oversized',    w: 40, h: 50, note: 'Streetwear' },
+  { label: 'Oversized XL', w: 45, h: 55, note: 'Heavyweight' },
+  { label: 'Full Back',    w: 50, h: 60, note: 'Rücken / Large' },
+]
+
 function Section({ number, title, description, children }: {
   number: number; title: string; description?: string; children: React.ReactNode
 }) {
@@ -299,25 +306,57 @@ export default function TemplateEditorPage() {
 
       {/* ── 3: Druckbereich ── */}
       <Section number={3} title="Physischer Druckbereich" description="Wie groß ist die bedruckbare Fläche auf dem Produkt?">
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Breite</label>
-            <div className="relative">
-              <input type="number" step="0.1" value={form.physical_width_cm} onChange={e => set('physical_width_cm', parseFloat(e.target.value))} className="yprint-input pr-10" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(0,0,0,0.4)]">cm</span>
+        <div className="space-y-4">
+          {/* Presets */}
+          <div className="grid grid-cols-4 gap-2">
+            {PRINT_ZONE_PRESETS.map(p => {
+              const active = form.physical_width_cm === p.w && form.physical_height_cm === p.h
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => { set('physical_width_cm', p.w); set('physical_height_cm', p.h) }}
+                  className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors ${
+                    active
+                      ? 'border-[#0079FF] bg-[#0079FF]/5'
+                      : 'border-[#e5e7eb] hover:border-[#0079FF]/40 hover:bg-[#f9fafb]'
+                  }`}
+                >
+                  <div className={`text-sm font-semibold ${active ? 'text-[#0079FF]' : 'text-[#1d1d1f]'}`}>{p.label}</div>
+                  <div className="text-xs text-[rgba(0,0,0,0.4)] mt-0.5">{p.w}×{p.h} cm</div>
+                  <div className="text-xs text-[rgba(0,0,0,0.3)]">{p.note}</div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Custom inputs */}
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Breite</label>
+              <div className="relative">
+                <input type="number" step="0.1" min={1} max={90} value={form.physical_width_cm} onChange={e => set('physical_width_cm', parseFloat(e.target.value))} className="yprint-input pr-10" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(0,0,0,0.4)]">cm</span>
+              </div>
+            </div>
+            <div className="pb-3 text-2xl text-[rgba(0,0,0,0.2)]">×</div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Höhe</label>
+              <div className="relative">
+                <input type="number" step="0.1" min={1} max={90} value={form.physical_height_cm} onChange={e => set('physical_height_cm', parseFloat(e.target.value))} className="yprint-input pr-10" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(0,0,0,0.4)]">cm</span>
+              </div>
+            </div>
+            <div className="pb-3 flex-1 text-sm text-[rgba(0,0,0,0.4)]">
+              = {Math.round(form.physical_width_cm * 10)} × {Math.round(form.physical_height_cm * 10)} mm
             </div>
           </div>
-          <div className="pb-3 text-2xl text-[rgba(0,0,0,0.2)]">×</div>
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Höhe</label>
-            <div className="relative">
-              <input type="number" step="0.1" value={form.physical_height_cm} onChange={e => set('physical_height_cm', parseFloat(e.target.value))} className="yprint-input pr-10" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[rgba(0,0,0,0.4)]">cm</span>
-            </div>
-          </div>
-          <div className="pb-3 flex-1 text-sm text-[rgba(0,0,0,0.4)]">
-            = {form.physical_width_cm * 10} × {form.physical_height_cm * 10} mm
-          </div>
+
+          {/* Kornit info */}
+          <p className="text-xs text-[rgba(0,0,0,0.35)] leading-relaxed">
+            Kornit Atlas MAX: bis 60 × 90 cm technisch möglich — praktische Grenzen durch Ärmel, Nähte und Wölbungen.
+            Typisch groß: 40×50 (Oversized), 45×55 (Heavyweight), 50×60 (Full Back).
+          </p>
         </div>
       </Section>
 
