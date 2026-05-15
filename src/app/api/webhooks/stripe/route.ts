@@ -19,8 +19,13 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    return new Response('Webhook Error', { status: 400 })
+    console.error('[Webhook] constructEvent failed:', {
+      error: err instanceof Error ? err.message : String(err),
+      secretPrefix: process.env.STRIPE_WEBHOOK_SECRET?.slice(0, 12) ?? '(not set)',
+      sigHeader: signature?.slice(0, 60),
+      bodyLength: body.length,
+    })
+    return new Response(`Webhook Error: ${err instanceof Error ? err.message : 'unknown'}`, { status: 400 })
   }
 
   const supabase = createAdminClient()

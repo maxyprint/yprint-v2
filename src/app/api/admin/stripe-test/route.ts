@@ -86,7 +86,7 @@ export async function GET() {
     }
   }
 
-  // 5. Webhook signature test
+  // 5. Webhook signature test (self-test — tautologisch: signiert und verifiziert mit demselben Secret)
   try {
     const testPayload = JSON.stringify({ test: true })
     const testHeader = stripe.webhooks.generateTestHeaderString({
@@ -96,13 +96,21 @@ export async function GET() {
     stripe.webhooks.constructEvent(testPayload, testHeader, webhookSecret)
     results.webhook_signature_verify = {
       ok: true,
-      value: 'Signatur-Verifikation funktioniert ✓',
+      value: `Self-test OK — ACHTUNG: prüft nur ob das Secret valide ist, nicht ob es zum app.yprint.de-Endpoint passt. Secret-Prefix: ${webhookSecret.slice(0, 12)}`,
     }
   } catch (err: unknown) {
     results.webhook_signature_verify = {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
     }
+  }
+
+  // 6. Endpoint-Secret Hinweis
+  results.endpoint_secret_hint = {
+    ok: webhookSecret.startsWith('whsec_'),
+    value: webhookSecret.startsWith('whsec_')
+      ? `Secret beginnt mit whsec_ ✓ (${webhookSecret.slice(0, 12)}...) — Sicherstellen dass dieser Secret vom app.yprint.de-Endpoint stammt (Stripe Dashboard → Webhooks → app.yprint.de → Signing secret → Reveal)`
+      : `Secret hat kein whsec_-Prefix — in Stripe Dashboard den richtigen Endpoint-Secret kopieren`,
   }
 
   const allOk = Object.values(results).every(r => r.ok)

@@ -15,7 +15,8 @@ const LABELS: Record<string, string> = {
   stripe_api_connection: 'Stripe API Verbindung',
   webhook_endpoints: 'Registrierte Webhook-Endpoints',
   payment_intent_create: 'PaymentIntent erstellen/stornieren',
-  webhook_signature_verify: 'Webhook-Signatur Verifikation',
+  webhook_signature_verify: 'Webhook-Signatur Self-Test (tautologisch)',
+  endpoint_secret_hint: 'Endpoint-Secret Hinweis',
 }
 
 export default function StripeTestPage() {
