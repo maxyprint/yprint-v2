@@ -90,11 +90,11 @@ export default function TemplateEditorPage() {
           const akdRaw = rawVariations._akd || {}
           const measurementsRaw = rawVariations._measurements || DEFAULT_MEASUREMENTS
           const DEFAULT_CAL = {
-            referenceSize: 'M',
+            referenceSize: 'L',
             hField: 'chest_cm',
-            vField: 'rib_height_cm',
+            vField: 'length_cm',
             hLine: { y: 42, x1: 10, x2: 90 },
-            vLine: { x: 50, y1: 28, y2: 36 },
+            vLine: { x: 50, y1: 8, y2: 92 },
             printCenter: { x: 50, y: 50 },
           }
           const DEFAULT_PRINT_ZONE = { left: 50, top: 50, width: 35, height: 42 }
@@ -110,9 +110,9 @@ export default function TemplateEditorPage() {
               return {
                 referenceSize: cal.referenceSize ?? 'M',
                 hField: 'chest_cm',
-                vField: 'rib_height_cm',
+                vField: 'length_cm',
                 hLine: { y: chest.y ?? 42, x1: chest.x1 ?? 10, x2: chest.x2 ?? 90 },
-                vLine: { x: 50, y1: (cal.collarLine?.y ?? 28), y2: (cal.collarLine?.y ?? 28) + 8 },
+                vLine: { x: 50, y1: 8, y2: 92 },
                 printCenter: { x: 50, y: 50 },
               }
             }

@@ -135,13 +135,15 @@ export function CalibrationEditor({
     }
   }
 
+  // Actual cm values for the selected reference size + fields
+  const refM = measurements?.per_size[calibration.referenceSize] ?? null
+  const hRefCm = refM ? (refM as unknown as Record<string, number>)[calibration.hField] ?? null : null
+  const vRefCm = refM ? (refM as unknown as Record<string, number>)[calibration.vField] ?? null : null
+
   // Print zone overlay size in image-% (purely for visual representation)
   const printZoneOverlay = (() => {
     if (!naturalSize || !measurements) return null
-    const refM = measurements.per_size[calibration.referenceSize]
     if (!refM) return null
-    const hRefCm = (refM as unknown as Record<string, number>)[calibration.hField]
-    const vRefCm = (refM as unknown as Record<string, number>)[calibration.vField]
     if (!hRefCm || !vRefCm) return null
     const hPx = (calibration.hLine.x2 - calibration.hLine.x1) / 100 * naturalSize.w
     const vPx = (calibration.vLine.y2 - calibration.vLine.y1) / 100 * naturalSize.h
@@ -162,6 +164,66 @@ export function CalibrationEditor({
 
   return (
     <div className="space-y-3">
+
+      {/* ── Reference Measurements Panel ── */}
+      <div className="p-4 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]">
+        <p className="text-xs font-semibold text-[#1d1d1f] mb-3">Referenzmaße</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-[rgba(0,0,0,0.5)] mb-1">Referenzgröße</label>
+            <select
+              value={calibration.referenceSize}
+              onChange={e => onChange({ ...calibration, referenceSize: e.target.value })}
+              className="w-full text-xs border border-[#e5e7eb] rounded-lg px-2 py-1.5 bg-white"
+            >
+              {availableSizes.length > 0
+                ? availableSizes.map(s => <option key={s} value={s}>{s}</option>)
+                : <option value="L">L</option>}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-[rgba(0,0,0,0.5)] mb-1">H-Referenz (Breite)</label>
+            <select
+              value={calibration.hField}
+              onChange={e => onChange({ ...calibration, hField: e.target.value })}
+              className="w-full text-xs border border-[#e5e7eb] rounded-lg px-2 py-1.5 bg-white"
+            >
+              {availableFields.length > 0
+                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
+                : <option value="chest_cm">chest_cm</option>}
+            </select>
+            {hRefCm != null && (
+              <span className="text-xs font-mono text-[#0079FF] mt-0.5 block">{hRefCm} cm</span>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-[rgba(0,0,0,0.5)] mb-1">V-Referenz (Höhe)</label>
+            <select
+              value={calibration.vField}
+              onChange={e => onChange({ ...calibration, vField: e.target.value })}
+              className="w-full text-xs border border-[#e5e7eb] rounded-lg px-2 py-1.5 bg-white"
+            >
+              {availableFields.length > 0
+                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
+                : <option value="length_cm">length_cm</option>}
+            </select>
+            {vRefCm != null && (
+              <span className="text-xs font-mono text-amber-500 mt-0.5 block">{vRefCm} cm</span>
+            )}
+          </div>
+        </div>
+        {hRefCm != null && vRefCm != null && (
+          <p className="text-xs text-[rgba(0,0,0,0.35)] mt-2.5">
+            H-Linie auf genau <strong>{hRefCm} cm</strong> strecken ·
+            V-Linie auf genau <strong>{vRefCm} cm</strong> strecken ·
+            Blauer Punkt = Print Zone Position (verschieben)
+          </p>
+        )}
+        {(!measurements || !refM) && (
+          <p className="text-xs text-amber-500 mt-2">Maßtabelle fehlt — bitte in Abschnitt 4 eintragen.</p>
+        )}
+      </div>
+
       <div
         ref={containerRef}
         className="relative w-full rounded-xl border border-[#e5e7eb] bg-[#f3f4f6] select-none overflow-hidden"
@@ -291,7 +353,7 @@ export function CalibrationEditor({
                 padding: '1px 6px', borderRadius: 4,
                 whiteSpace: 'nowrap', pointerEvents: 'none',
               }}>
-                {calibration.hField}
+                {calibration.hField}{hRefCm != null ? ` = ${hRefCm} cm` : ''}
               </span>
             </div>
 
@@ -346,65 +408,26 @@ export function CalibrationEditor({
                 padding: '1px 6px', borderRadius: 4,
                 whiteSpace: 'nowrap', pointerEvents: 'none',
               }}>
-                {calibration.vField}
+                {calibration.vField}{vRefCm != null ? ` = ${vRefCm} cm` : ''}
               </span>
             </div>
           </>
         )}
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1">
-        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.45)]">
           <div className="w-7 h-2 rounded-sm bg-[#0079FF]" />
-          X-Maßstab
+          H-Linie = X-Maßstab
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.45)]">
           <div className="w-2 h-7 rounded-sm bg-[#f59e0b]" />
-          Y-Maßstab
+          V-Linie = Y-Maßstab
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.5)]">
+        <div className="flex items-center gap-1.5 text-xs text-[rgba(0,0,0,0.45)]">
           <div className="w-3.5 h-3.5 rounded-full bg-[#0079FF] border-2 border-white shadow" />
-          Print Zone (Punkt = Mittelpunkt, verschieben)
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs text-[rgba(0,0,0,0.5)]">Größe</label>
-            <select
-              value={calibration.referenceSize}
-              onChange={e => onChange({ ...calibration, referenceSize: e.target.value })}
-              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
-            >
-              {availableSizes.length > 0
-                ? availableSizes.map(s => <option key={s} value={s}>{s}</option>)
-                : <option value="M">M</option>}
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs text-[rgba(0,0,0,0.5)]">H-Feld</label>
-            <select
-              value={calibration.hField}
-              onChange={e => onChange({ ...calibration, hField: e.target.value })}
-              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
-            >
-              {availableFields.length > 0
-                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
-                : <option value="chest_cm">chest_cm</option>}
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-xs text-[rgba(0,0,0,0.5)]">V-Feld</label>
-            <select
-              value={calibration.vField}
-              onChange={e => onChange({ ...calibration, vField: e.target.value })}
-              className="text-xs border border-[#e5e7eb] rounded-lg px-2 py-1 bg-white"
-            >
-              {availableFields.length > 0
-                ? availableFields.map(f => <option key={f} value={f}>{f}</option>)
-                : <option value="rib_height_cm">rib_height_cm</option>}
-            </select>
-          </div>
+          Punkt = Print Zone Position
         </div>
       </div>
     </div>

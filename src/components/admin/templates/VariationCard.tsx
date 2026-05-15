@@ -33,11 +33,11 @@ const DEFAULT_VIEW: ViewData = {
   imageZone: { left: 50, top: 50, scaleX: 1, scaleY: 1, angle: 0 },
   printZone: { left: 50, top: 50, width: 35, height: 42 },
   calibration: {
-    referenceSize: 'M',
+    referenceSize: 'L',
     hField: 'chest_cm',
-    vField: 'rib_height_cm',
+    vField: 'length_cm',
     hLine: { y: 42, x1: 10, x2: 90 },
-    vLine: { x: 50, y1: 28, y2: 36 },
+    vLine: { x: 50, y1: 8, y2: 92 },
     printCenter: { x: 50, y: 50 },
   },
 }
