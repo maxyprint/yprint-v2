@@ -15,12 +15,37 @@ function CheckoutSuccessContent() {
     const paymentIntentId = searchParams.get('payment_intent')
     if (!paymentIntentId) { setLoading(false); return }
 
-    fetch(`/api/payments/stripe/verify-return?payment_intent_id=${paymentIntentId}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.orderNumber) { setOrderNumber(data.orderNumber); clearCart() }
-      })
-      .finally(() => setLoading(false))
+    let attempts = 0
+
+    const poll = async () => {
+      attempts++
+      try {
+        const data = await fetch(
+          `/api/payments/stripe/verify-return?payment_intent_id=${paymentIntentId}`
+        ).then(r => r.json())
+
+        if (data.orderNumber) {
+          setOrderNumber(data.orderNumber)
+          clearCart()
+          setLoading(false)
+        } else if (attempts < 8) {
+          setTimeout(poll, 800)
+        } else {
+          // Payment succeeded but webhook hasn't created the order yet — still show success
+          clearCart()
+          setLoading(false)
+        }
+      } catch {
+        if (attempts < 8) {
+          setTimeout(poll, 800)
+        } else {
+          clearCart()
+          setLoading(false)
+        }
+      }
+    }
+
+    poll()
   }, [searchParams, clearCart])
 
   if (loading) {

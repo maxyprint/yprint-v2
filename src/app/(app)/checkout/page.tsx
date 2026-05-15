@@ -50,6 +50,7 @@ export default function CheckoutPage() {
   const { items, total, couponCode } = useCartStore()
   const { user } = useAuthStore()
   const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [addresses, setAddresses] = useState<UserAddress[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -59,6 +60,17 @@ export default function CheckoutPage() {
   const shipping = cartTotal > 0 ? 5 : 0
   const orderTotal = cartTotal + shipping
 
+  const handleAddressChange = async (id: string) => {
+    setSelectedAddress(id)
+    if (paymentIntentId) {
+      await fetch('/api/payments/stripe/intent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment_intent_id: paymentIntentId, address_id: id }),
+      })
+    }
+  }
+
   useEffect(() => {
     if (items.length === 0) {
       router.push('/dashboard')
@@ -67,7 +79,7 @@ export default function CheckoutPage() {
 
     async function init() {
       try {
-        // Step 1: sync cart to Supabase to get a session id
+        // Step 1: sync cart
         const cartRes = await fetch('/api/cart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -88,24 +100,29 @@ export default function CheckoutPage() {
         const cartSessionId = cartData.data?.id
         if (!cartSessionId) throw new Error('Warenkorb konnte nicht gespeichert werden.')
 
-        // Step 2: load addresses and create payment intent in parallel
-        const [addrRes, intentRes] = await Promise.all([
-          fetch('/api/users/addresses').then(r => r.json()),
-          fetch('/api/payments/stripe/intent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cart_session_id: cartSessionId }),
-          }).then(r => r.json()),
-        ])
-
+        // Step 2: load addresses
+        const addrRes = await fetch('/api/users/addresses').then(r => r.json())
+        let defaultAddressId: string | null = null
         if (addrRes.success) {
           setAddresses(addrRes.data)
           const def = addrRes.data.find((a: UserAddress) => a.is_default)
-          if (def) setSelectedAddress(def.id)
+          defaultAddressId = def?.id || addrRes.data[0]?.id || null
+          if (defaultAddressId) setSelectedAddress(defaultAddressId)
         }
+
+        // Step 3: create intent with address already known
+        const intentRes = await fetch('/api/payments/stripe/intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cart_session_id: cartSessionId,
+            address_id: defaultAddressId,
+          }),
+        }).then(r => r.json())
 
         if (intentRes.client_secret) {
           setClientSecret(intentRes.client_secret)
+          setPaymentIntentId(intentRes.payment_intent_id)
         } else {
           throw new Error(intentRes.error || 'Payment Intent konnte nicht erstellt werden.')
         }
@@ -158,7 +175,7 @@ export default function CheckoutPage() {
                       name="address"
                       value={addr.id}
                       checked={selectedAddress === addr.id}
-                      onChange={() => setSelectedAddress(addr.id)}
+                      onChange={() => handleAddressChange(addr.id)}
                       className="mt-0.5"
                     />
                     <div className="text-sm">

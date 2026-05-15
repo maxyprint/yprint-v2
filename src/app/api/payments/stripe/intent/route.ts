@@ -7,14 +7,13 @@ export async function POST(request: Request) {
   const { user, error } = await requireAuth()
   if (error) return error
 
-  const { cart_session_id, payment_method_types = ['card'] } = await request.json() as {
+  const { cart_session_id, address_id } = await request.json() as {
     cart_session_id: string
-    payment_method_types?: string[]
+    address_id?: string
   }
 
   const supabase = createAdminClient()
 
-  // Load cart
   const { data: cart } = await supabase
     .from('cart_sessions')
     .select('*')
@@ -25,28 +24,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Warenkorb ist leer' }, { status: 400 })
   }
 
-  // Calculate total
   const items = cart.items as Array<{ unit_price: number; quantity: number }>
   const subtotalCents = items.reduce((sum, i) => sum + Math.round(i.unit_price * 100 * i.quantity), 0)
-  const shippingCents = 500 // €5.00 flat rate
-  const totalCents = subtotalCents + shippingCents
+  const shippingCents = 500
 
-  // Get Supabase user email
+  let discountCents = 0
+  if (cart.coupon_code) {
+    const { data: coupon } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', cart.coupon_code)
+      .eq('active', true)
+      .single()
+    if (coupon) {
+      const raw = coupon.discount_type === 'percent'
+        ? Math.round(subtotalCents * coupon.discount_value / 100)
+        : Math.round(coupon.discount_value * 100)
+      discountCents = Math.min(raw, subtotalCents)
+    }
+  }
+
+  const totalCents = subtotalCents - discountCents + shippingCents
+
   const { data: { user: sbUser } } = await supabase.auth.admin.getUserById(user!.id)
   const customerId = await getOrCreateStripeCustomer(
     user!.id,
     sbUser?.email || '',
-    `${sbUser?.user_metadata?.username || ''}`
+    sbUser?.user_metadata?.username || ''
   )
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: totalCents,
     currency: 'eur',
     customer: customerId,
-    payment_method_types,
+    automatic_payment_methods: { enabled: true },
     metadata: {
       user_id: user!.id,
       cart_session_id,
+      address_id: address_id || '',
+      discount_cents: String(discountCents),
+      shipping_cents: String(shippingCents),
     },
   })
 
@@ -56,4 +73,29 @@ export async function POST(request: Request) {
     payment_intent_id: paymentIntent.id,
     amount: totalCents,
   })
+}
+
+export async function PATCH(request: Request) {
+  const { user, error } = await requireAuth()
+  if (error) return error
+
+  const { payment_intent_id, address_id } = await request.json() as {
+    payment_intent_id: string
+    address_id: string
+  }
+
+  if (!payment_intent_id) {
+    return NextResponse.json({ error: 'payment_intent_id fehlt' }, { status: 400 })
+  }
+
+  const pi = await stripe.paymentIntents.retrieve(payment_intent_id)
+  if (pi.metadata?.user_id !== user!.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
+  await stripe.paymentIntents.update(payment_intent_id, {
+    metadata: { ...pi.metadata, address_id: address_id || '' },
+  })
+
+  return NextResponse.json({ success: true })
 }

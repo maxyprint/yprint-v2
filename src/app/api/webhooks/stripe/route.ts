@@ -59,8 +59,10 @@ export async function POST(request: Request) {
 async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: ReturnType<typeof createAdminClient>) {
   const userId = pi.metadata?.user_id
   const cartSessionId = pi.metadata?.cart_session_id
+  const addressId = pi.metadata?.address_id
+  const discountCents = parseInt(pi.metadata?.discount_cents || '0', 10)
+  const shippingCents = parseInt(pi.metadata?.shipping_cents || '500', 10)
 
-  // Check if order already exists
   const { data: existing } = await supabase
     .from('orders')
     .select('id')
@@ -74,10 +76,7 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
     return
   }
 
-  // Load cart session
   let cartItems: unknown[] = []
-  let shippingAddress = null
-  let billingAddress = null
   let couponCode = null
 
   if (cartSessionId) {
@@ -92,10 +91,23 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
     }
   }
 
-  const orderNumber = generateOrderNumber()
-  const totalEuros = pi.amount / 100 // Stripe amount is in cents, store as euros
+  let shippingAddress = null
+  if (addressId) {
+    const { data: addr } = await supabase
+      .from('user_addresses')
+      .select('*')
+      .eq('id', addressId)
+      .single()
+    if (addr) shippingAddress = addr
+  }
 
-  // Create order
+  const totalEuros = pi.amount / 100
+  const shippingEuros = shippingCents / 100
+  const discountEuros = discountCents / 100
+  const subtotalEuros = totalEuros - shippingEuros + discountEuros
+
+  const orderNumber = generateOrderNumber()
+
   const { data: order } = await supabase.from('orders').insert({
     user_id: userId || null,
     order_number: orderNumber,
@@ -103,37 +115,44 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
     payment_status: 'paid',
     payment_method: pi.payment_method_types?.[0] || 'card',
     stripe_payment_intent_id: pi.id,
-    subtotal: totalEuros,
+    subtotal: subtotalEuros,
+    discount_amount: discountEuros,
+    shipping_cost: shippingEuros,
     total: totalEuros,
     currency: pi.currency.toUpperCase(),
     coupon_code: couponCode,
     shipping_address: shippingAddress,
-    billing_address: billingAddress,
+    billing_address: shippingAddress,
   }).select('id').single()
 
   if (!order) return
 
-  // Create order items from cart
   if (cartItems.length > 0) {
-    const items = (cartItems as Array<{ design_id: string; template_id: string; variation_id: string; size: string; quantity: number; unit_price: number }>).map(item => ({
+    const orderItems = (cartItems as Array<{
+      design_id: string
+      template_id: string
+      variation_id: string
+      size: string
+      quantity: number
+      unit_price: number
+      design_name?: string
+    }>).map(item => ({
       order_id: order.id,
       design_id: item.design_id || null,
       template_id: item.template_id || null,
       variation_id: item.variation_id || null,
       size: item.size || null,
       quantity: item.quantity,
-      unit_price: item.unit_price, // already in euros
+      unit_price: item.unit_price,
       total_price: item.unit_price * item.quantity,
     }))
-    await supabase.from('order_items').insert(items)
+    await supabase.from('order_items').insert(orderItems)
 
-    // Clear cart
     if (cartSessionId) {
       await supabase.from('cart_sessions').delete().eq('id', cartSessionId)
     }
   }
 
-  // Send confirmation email
   if (userId) {
     const { data: user } = await supabase.auth.admin.getUserById(userId)
     if (user?.user?.email) {
@@ -143,7 +162,7 @@ async function handlePaymentSucceeded(pi: Stripe.PaymentIntent, supabase: Return
         (cartItems as Array<{ design_name?: string; quantity: number; unit_price: number }>).map(i => ({
           name: i.design_name || 'Design',
           quantity: i.quantity,
-          price: i.unit_price, // euros
+          price: i.unit_price,
         })),
         totalEuros
       )
