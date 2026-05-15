@@ -51,10 +51,14 @@ export default function CheckoutPage() {
   const { user } = useAuthStore()
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  const [cartSessionId, setCartSessionId] = useState<string | null>(null)
   const [addresses, setAddresses] = useState<UserAddress[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [initError, setInitError] = useState<string | null>(null)
+  const [testLoading, setTestLoading] = useState(false)
+
+  const isAdmin = user?.role === 'admin'
 
   const cartTotal = total()
   const shipping = cartTotal > 0 ? 5 : 0
@@ -99,6 +103,7 @@ export default function CheckoutPage() {
         const cartData = await cartRes.json()
         const cartSessionId = cartData.data?.id
         if (!cartSessionId) throw new Error('Warenkorb konnte nicht gespeichert werden.')
+        setCartSessionId(cartSessionId)
 
         // Step 2: load addresses
         const addrRes = await fetch('/api/users/addresses').then(r => r.json())
@@ -206,6 +211,38 @@ export default function CheckoutPage() {
               <Elements stripe={stripePromise} options={{ clientSecret, locale: 'de' }}>
                 <CheckoutForm clientSecret={clientSecret} />
               </Elements>
+            </div>
+          )}
+
+          {/* Admin: bypass payment */}
+          {isAdmin && cartSessionId && (
+            <div className="yprint-card border-2 border-dashed border-orange-300 bg-orange-50">
+              <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-2">Admin — Testbestellung</p>
+              <p className="text-xs text-orange-700 mb-3">Schließt die Bestellung ohne Zahlung ab und erstellt den Order-Eintrag direkt.</p>
+              <button
+                onClick={async () => {
+                  setTestLoading(true)
+                  try {
+                    const res = await fetch('/api/admin/test-order', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ cart_session_id: cartSessionId, address_id: selectedAddress }),
+                    })
+                    const data = await res.json()
+                    if (data.order_number) {
+                      router.push(`/checkout/success?order_number=${data.order_number}`)
+                    } else {
+                      alert(data.error || 'Fehler beim Erstellen der Testbestellung')
+                    }
+                  } finally {
+                    setTestLoading(false)
+                  }
+                }}
+                disabled={testLoading}
+                className="yprint-button w-full bg-orange-500 hover:bg-orange-600 text-white rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {testLoading ? 'Erstelle Bestellung…' : 'Bestellung ohne Zahlung abschließen'}
+              </button>
             </div>
           )}
         </div>

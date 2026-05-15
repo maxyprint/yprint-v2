@@ -12,6 +12,15 @@ function CheckoutSuccessContent() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Direct order_number param (e.g. from admin test-order)
+    const directOrderNumber = searchParams.get('order_number')
+    if (directOrderNumber) {
+      setOrderNumber(directOrderNumber)
+      clearCart()
+      setLoading(false)
+      return
+    }
+
     const paymentIntentId = searchParams.get('payment_intent')
     if (!paymentIntentId) { setLoading(false); return }
 
