@@ -1,64 +1,28 @@
 import sharp from 'sharp'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const SCALE = 300 / 72
 const CANVAS_W = 616
 const CANVAS_H = 626
+const PRINT_DPI = 300
+const CM_PER_INCH = 2.54
+
+type VariationImage = {
+  url: string
+  transform: {
+    left: number
+    top: number
+    scaleX: number
+    scaleY: number
+    angle?: number
+    width: number
+    height: number
+  }
+  visible?: boolean
+}
 
 async function ensurePrintBucket(supabase: ReturnType<typeof createAdminClient>) {
   await supabase.storage.createBucket('print-pngs', { public: true })
   await supabase.storage.updateBucket('print-pngs', { public: true })
-}
-
-async function compositeImages(
-  images: Array<{
-    url: string
-    transform: { left: number; top: number; scaleX: number; scaleY: number; angle?: number; width: number; height: number }
-    visible?: boolean
-  }>,
-  printZone: { left: number; top: number; width: number; height: number },
-  supabase: ReturnType<typeof createAdminClient>
-): Promise<Buffer | null> {
-  const outW = Math.round(printZone.width * SCALE)
-  const outH = Math.round(printZone.height * SCALE)
-  const composites: sharp.OverlayOptions[] = []
-
-  for (const img of images) {
-    if (img.visible === false) continue
-    const pathMatch = (img.url ?? '').match(/\/api\/user-images\/(.+)/)
-    if (!pathMatch) continue
-
-    const { data, error } = await supabase.storage.from('user-images').download(pathMatch[1])
-    if (error || !data) continue
-
-    const buf = Buffer.from(await data.arrayBuffer())
-    const t = img.transform
-    const displayW = t.width * t.scaleX
-    const displayH = t.height * t.scaleY
-    // variationImages always uses originX/originY='center'
-    const cx = t.left
-    const cy = t.top
-
-    const outImgW = Math.round(displayW * SCALE)
-    const outImgH = Math.round(displayH * SCALE)
-    const left = Math.round((cx - printZone.left) * SCALE - outImgW / 2)
-    const top = Math.round((cy - printZone.top) * SCALE - outImgH / 2)
-
-    let s = sharp(buf).resize(outImgW, outImgH, { fit: 'fill' })
-    if (t.angle && t.angle !== 0) {
-      s = s.rotate(t.angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    }
-    composites.push({ input: await s.png().toBuffer(), left, top })
-  }
-
-  if (composites.length === 0) return null
-
-  return sharp({
-    create: { width: outW, height: outH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite(composites)
-    .png()
-    .toBuffer()
 }
 
 async function upsertDesignPng(
@@ -72,94 +36,9 @@ async function upsertDesignPng(
   await supabase.from('design_pngs').insert(row)
 }
 
-// ─── Fallback: generate from old Fabric.js canvas JSON (design_data.objects) ──────
-
-export async function generatePrintPNG(
-  designId: string,
-  userId: string,
-  templateId: string | null,
-  designData: Record<string, unknown>
-): Promise<string | null> {
-  const supabase = createAdminClient()
-  const objects = (designData.objects as unknown[]) ?? []
-
-  const pzObj = (objects as Record<string, unknown>[]).find(
-    (o) => o.stroke === '#007cba' && o.fill === 'transparent'
-  )
-  if (!pzObj) return null
-
-  const printZone = {
-    left: pzObj.left as number,
-    top: pzObj.top as number,
-    width: (pzObj.width as number) * ((pzObj.scaleX as number) || 1),
-    height: (pzObj.height as number) * ((pzObj.scaleY as number) || 1),
-  }
-
-  type OldImageObj = Record<string, unknown>
-  const imageObjs = (objects as OldImageObj[]).filter(
-    (o) => o.type === 'image' && o.selectable !== false && o.stroke !== '#007cba' && !o.excludeFromExport
-  )
-
-  const legacyImages = imageObjs.map((obj) => ({
-    url: (obj.src as string) ?? '',
-    visible: true,
-    transform: {
-      left: (obj.originX as string) === 'center'
-        ? (obj.left as number)
-        : (obj.left as number) + ((obj.width as number) * ((obj.scaleX as number) || 1)) / 2,
-      top: (obj.originY as string) === 'center'
-        ? (obj.top as number)
-        : (obj.top as number) + ((obj.height as number) * ((obj.scaleY as number) || 1)) / 2,
-      scaleX: (obj.scaleX as number) || 1,
-      scaleY: (obj.scaleY as number) || 1,
-      angle: (obj.angle as number) || 0,
-      width: obj.width as number,
-      height: obj.height as number,
-    },
-  }))
-
-  const outputBuffer = await compositeImages(legacyImages, printZone, supabase)
-  if (!outputBuffer) return null
-
-  await ensurePrintBucket(supabase)
-  const storagePath = `${userId}/${designId}/front_print.png`
-  const { error } = await supabase.storage
-    .from('print-pngs')
-    .upload(storagePath, outputBuffer, { contentType: 'image/png', upsert: true })
-  if (error) return null
-
-  const { data: { publicUrl } } = supabase.storage.from('print-pngs').getPublicUrl(storagePath)
-
-  await upsertDesignPng(supabase, {
-    design_id: designId,
-    view_id: 'front',
-    view_name: 'Front',
-    storage_path: storagePath,
-    public_url: publicUrl,
-    template_id: templateId,
-    print_area_px: printZone,
-    print_area_mm: { width: (printZone.width / 72) * 25.4, height: (printZone.height / 72) * 25.4 },
-    save_type: 'auto',
-    generated_at: new Date().toISOString(),
-  })
-
-  await supabase.from('user_designs').update({ print_file_url: publicUrl }).eq('id', designId)
-  return publicUrl
-}
-
-// ─── New: generate from variationImages format (current designer save format) ────
-
-type VariationImage = {
-  url: string
-  transform: { left: number; top: number; scaleX: number; scaleY: number; angle?: number; width: number; height: number }
-  visible?: boolean
-}
-
-function getPrintZonePx(
-  pz: { left: number; top: number; width: number; height: number }
-): { left: number; top: number; width: number; height: number } {
-  // Template DB stores all as % of canvas. Designer uses center-based positioning:
-  // left_px = (centerPct/100)*canvasW - (widthPct/100*canvasW)/2
+// Build print zone top-left position in canvas px from template DB format.
+// Template stores: left/top = center position as % of canvas, width/height = % of canvas.
+function getPrintZonePx(pz: { left: number; top: number; width: number; height: number }) {
   const w = (pz.width / 100) * CANVAS_W
   const h = (pz.height / 100) * CANVAS_H
   return {
@@ -169,6 +48,84 @@ function getPrintZonePx(
     height: h,
   }
 }
+
+// Composite user images onto a transparent canvas.
+// outW / outH drive the output resolution (should come from physical dimensions at 300 DPI).
+// Images are scaled by (outW / printZone.width) and (outH / printZone.height) independently
+// so the physical proportions of the shirt are preserved regardless of canvas aspect ratio.
+// Images that extend beyond the canvas are clipped correctly (sharp requires left/top >= 0).
+async function compositeImages(
+  images: VariationImage[],
+  printZone: { left: number; top: number; width: number; height: number },
+  outW: number,
+  outH: number,
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<Buffer | null> {
+  const scaleX = outW / printZone.width
+  const scaleY = outH / printZone.height
+  const composites: sharp.OverlayOptions[] = []
+
+  for (const img of images) {
+    if (img.visible === false) continue
+
+    const pathMatch = (img.url ?? '').match(/\/api\/user-images\/(.+)/)
+    if (!pathMatch) continue
+
+    const { data, error } = await supabase.storage.from('user-images').download(pathMatch[1])
+    if (error || !data) continue
+
+    const buf = Buffer.from(await data.arrayBuffer())
+    const t = img.transform
+
+    // Fabric.js width/height = natural image size; scaleX/Y = display scale.
+    // variationImages always stores originX/Y='center', so t.left/top is the center point.
+    const displayW = t.width * (t.scaleX || 1)
+    const displayH = t.height * (t.scaleY || 1)
+    const cx = t.left
+    const cy = t.top
+
+    const outImgW = Math.max(1, Math.round(displayW * scaleX))
+    const outImgH = Math.max(1, Math.round(displayH * scaleY))
+
+    let imgLeft = Math.round((cx - printZone.left) * scaleX - outImgW / 2)
+    let imgTop = Math.round((cy - printZone.top) * scaleY - outImgH / 2)
+
+    // Clip to canvas bounds — sharp requires left >= 0 and top >= 0, and the overlay
+    // must not extend beyond the base canvas. Negative values cause broken output.
+    const clipL = Math.max(0, -imgLeft)
+    const clipT = Math.max(0, -imgTop)
+    const clipR = Math.max(0, imgLeft + outImgW - outW)
+    const clipB = Math.max(0, imgTop + outImgH - outH)
+    const clippedW = outImgW - clipL - clipR
+    const clippedH = outImgH - clipT - clipB
+
+    if (clippedW <= 0 || clippedH <= 0) continue
+
+    imgLeft = Math.max(0, imgLeft)
+    imgTop = Math.max(0, imgTop)
+
+    let s = sharp(buf).resize(outImgW, outImgH, { fit: 'fill' })
+    if (t.angle && t.angle !== 0) {
+      s = s.rotate(t.angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    }
+    if (clipL > 0 || clipT > 0 || clipR > 0 || clipB > 0) {
+      s = s.extract({ left: clipL, top: clipT, width: clippedW, height: clippedH })
+    }
+
+    composites.push({ input: await s.png().toBuffer(), left: imgLeft, top: imgTop })
+  }
+
+  if (composites.length === 0) return null
+
+  return sharp({
+    create: { width: outW, height: outH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite(composites)
+    .png()
+    .toBuffer()
+}
+
+// ─── New format: variationImages (current designer save format) ───────────────
 
 export async function generateViewPNGFromDesignData(
   designId: string,
@@ -182,7 +139,10 @@ export async function generateViewPNGFromDesignData(
 
   const [designRes, tmplRes] = await Promise.all([
     supabase.from('user_designs').select('design_data').eq('id', designId).single(),
-    supabase.from('design_templates').select('variations').eq('id', templateId).single(),
+    supabase.from('design_templates')
+      .select('variations, physical_width_cm, physical_height_cm')
+      .eq('id', templateId)
+      .single(),
   ])
 
   const designData = designRes.data?.design_data as Record<string, unknown> | null
@@ -192,14 +152,24 @@ export async function generateViewPNGFromDesignData(
   const images = ((designData.variationImages as Record<string, VariationImage[]>)?.[key]) ?? []
   if (images.length === 0) return null
 
-  const variations = tmplRes.data?.variations as Record<string, {
+  const tmpl = tmplRes.data
+  const variations = tmpl?.variations as Record<string, {
     views: Record<string, { printZone: { left: number; top: number; width: number; height: number } }>
   }> | null
+
   const rawPz = variations?.[variationId]?.views?.[viewId]?.printZone
   if (!rawPz) return null
 
   const printZone = getPrintZonePx(rawPz)
-  const outputBuffer = await compositeImages(images, printZone, supabase)
+
+  // Output at 300 DPI based on physical print zone size — NOT canvas pixel dimensions.
+  // Canvas aspect ratio ≠ physical shirt aspect ratio, so X and Y scales differ.
+  const physW = (rawPz.width / 100) * (tmpl?.physical_width_cm ?? 45)
+  const physH = (rawPz.height / 100) * (tmpl?.physical_height_cm ?? 55)
+  const outW = Math.round((physW / CM_PER_INCH) * PRINT_DPI)
+  const outH = Math.round((physH / CM_PER_INCH) * PRINT_DPI)
+
+  const outputBuffer = await compositeImages(images, printZone, outW, outH, supabase)
   if (!outputBuffer) return null
 
   await ensurePrintBucket(supabase)
@@ -219,7 +189,7 @@ export async function generateViewPNGFromDesignData(
     public_url: publicUrl,
     template_id: templateId,
     print_area_px: printZone,
-    print_area_mm: { width: (printZone.width / 72) * 25.4, height: (printZone.height / 72) * 25.4 },
+    print_area_mm: { width: physW * 10, height: physH * 10 },
     save_type: 'designer',
     generated_at: new Date().toISOString(),
   })
@@ -246,4 +216,87 @@ export async function recordEmptyViewPNG(
     metadata: { has_content: false },
     generated_at: new Date().toISOString(),
   })
+}
+
+// ─── Legacy fallback: old Fabric.js canvas JSON format (design_data.objects) ──
+
+export async function generatePrintPNG(
+  designId: string,
+  userId: string,
+  templateId: string | null,
+  designData: Record<string, unknown>
+): Promise<string | null> {
+  const supabase = createAdminClient()
+  const objects = (designData.objects as unknown[]) ?? []
+
+  const pzObj = (objects as Record<string, unknown>[]).find(
+    (o) => o.stroke === '#007cba' && o.fill === 'transparent'
+  )
+  if (!pzObj) return null
+
+  const printZone = {
+    left: pzObj.left as number,
+    top: pzObj.top as number,
+    width: (pzObj.width as number) * ((pzObj.scaleX as number) || 1),
+    height: (pzObj.height as number) * ((pzObj.scaleY as number) || 1),
+  }
+
+  const imageObjs = (objects as Record<string, unknown>[]).filter(
+    (o) => o.type === 'image' && o.selectable !== false && o.stroke !== '#007cba' && !o.excludeFromExport
+  )
+
+  const legacyImages: VariationImage[] = imageObjs.map((obj) => {
+    const originX = (obj.originX as string) ?? 'left'
+    const originY = (obj.originY as string) ?? 'top'
+    const displayW = (obj.width as number) * ((obj.scaleX as number) || 1)
+    const displayH = (obj.height as number) * ((obj.scaleY as number) || 1)
+    return {
+      url: (obj.src as string) ?? '',
+      visible: true,
+      transform: {
+        left: originX === 'center' ? (obj.left as number) : (obj.left as number) + displayW / 2,
+        top: originY === 'center' ? (obj.top as number) : (obj.top as number) + displayH / 2,
+        scaleX: (obj.scaleX as number) || 1,
+        scaleY: (obj.scaleY as number) || 1,
+        angle: (obj.angle as number) || 0,
+        width: obj.width as number,
+        height: obj.height as number,
+      },
+    }
+  })
+
+  // Legacy format has no physical dimensions — fall back to canvas-DPI scale.
+  const outW = Math.round(printZone.width * (PRINT_DPI / 72))
+  const outH = Math.round(printZone.height * (PRINT_DPI / 72))
+
+  const outputBuffer = await compositeImages(legacyImages, printZone, outW, outH, supabase)
+  if (!outputBuffer) return null
+
+  await ensurePrintBucket(supabase)
+  const storagePath = `${userId}/${designId}/front_print.png`
+  const { error } = await supabase.storage
+    .from('print-pngs')
+    .upload(storagePath, outputBuffer, { contentType: 'image/png', upsert: true })
+  if (error) return null
+
+  const { data: { publicUrl } } = supabase.storage.from('print-pngs').getPublicUrl(storagePath)
+
+  await upsertDesignPng(supabase, {
+    design_id: designId,
+    view_id: 'front',
+    view_name: 'Front',
+    storage_path: storagePath,
+    public_url: publicUrl,
+    template_id: templateId,
+    print_area_px: printZone,
+    print_area_mm: {
+      width: (printZone.width / 72) * 25.4,
+      height: (printZone.height / 72) * 25.4,
+    },
+    save_type: 'auto',
+    generated_at: new Date().toISOString(),
+  })
+
+  await supabase.from('user_designs').update({ print_file_url: publicUrl }).eq('id', designId)
+  return publicUrl
 }
