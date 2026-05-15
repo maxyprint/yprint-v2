@@ -244,13 +244,19 @@ class DesignerWidget {
                 activeObject.setCoords();
                 this.fabricCanvas.renderAll();
                 
-                // Update stored position
+                // Update stored position for the active object
                 if (this.currentView && this.currentVariation) {
                     const key = `${this.currentVariation}_${this.currentView}`;
-                    const imageData = this.variationImages.get(key);
-                    if (imageData) {
-                        imageData.transform.left = activeObject.left;
-                        imageData.transform.top = activeObject.top;
+                    const imagesArray = this.variationImages.get(key);
+                    if (imagesArray) {
+                        const activeId = activeObject.data?.imageId;
+                        const imageData = activeId
+                            ? imagesArray.find(d => d.id === activeId)
+                            : imagesArray[imagesArray.length - 1];
+                        if (imageData) {
+                            imageData.transform.left = activeObject.left;
+                            imageData.transform.top = activeObject.top;
+                        }
                     }
                 }
 
@@ -674,8 +680,9 @@ class DesignerWidget {
     }
 
     renderTemplateView(view, fabricImage) {
-        // Clear existing canvas
+        // Clear existing canvas and restore white background (clear() resets backgroundColor to "")
         this.fabricCanvas.clear();
+        this.fabricCanvas.backgroundColor = '#ffffff';
 
         this.clipMask = new fabric.Rect({
             left: view.safeZone.left * this.fabricCanvas.width / 100,
@@ -1112,10 +1119,10 @@ class DesignerWidget {
                 // which will properly apply all styles, filters, and clipping
                 this.loadViewImage();
 
-                // After loading, find and select this image
+                // After loading, select the last added image
                 const key = `${this.currentVariation}_${this.currentView}`;
                 const imagesArray = this.variationImages.get(key) || [];
-                const addedImageData = imagesArray.find(data => data.id === imageId);
+                const addedImageData = imagesArray[imagesArray.length - 1];
 
                 if (addedImageData && addedImageData.fabricImage) {
                     this.fabricCanvas.setActiveObject(addedImageData.fabricImage);
@@ -1375,7 +1382,6 @@ class DesignerWidget {
                 padding: 5,
                 globalCompositeOperation: 'screen',
                 preserveAspectRatio: true,
-                clipPath: this.clipMask,
                 opacity: 0.95,
                 visible: imageData.visible !== undefined ? imageData.visible : true
             });
@@ -1404,7 +1410,6 @@ class DesignerWidget {
                 padding: 5,
                 globalCompositeOperation: 'multiply',
                 preserveAspectRatio: true,
-                clipPath: this.clipMask,
                 opacity: 0.8,
                 visible: imageData.visible !== undefined ? imageData.visible : true
             });
@@ -2809,8 +2814,8 @@ class DesignerWidget {
         this.safeZoneRect = new Rect({
             left: view.safeZone.left * this.fabricCanvas.width / 100,
             top: view.safeZone.top * this.fabricCanvas.height / 100,
-            width: view.safeZone.width * this.fabricCanvas.width / 100,
-            height: view.safeZone.height * this.fabricCanvas.height / 100,
+            width: view.safeZone.width,
+            height: view.safeZone.height,
             fill: 'rgba(0, 255, 0, 0.2)',
             stroke: '#00ff00',
             strokeWidth: 2,
