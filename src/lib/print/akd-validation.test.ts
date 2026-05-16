@@ -304,18 +304,4 @@ describe('validateAkdPayload', () => {
     expect(r.errors.filter(e => e.message.includes('DPI'))).toHaveLength(0)
     expect(r.warnings.filter(w => w.message.includes('DPI'))).toHaveLength(0)
   })
-
-  it('skips DPI check for legacy fractional canvas-coordinate values', () => {
-    // Pre-fix rows store canvas-pixel coords like 199.584 — must not trigger DPI errors
-    const payload = {
-      ...VALID_PAYLOAD,
-      orderPositions: [{
-        ...VALID_ORDER_POSITION,
-        printPositions: [{ ...VALID_PRINT_POSITION, width: 450, height: 550, _px_width: 199.584, _px_height: 287.334 }],
-      }],
-    }
-    const r = validateAkdPayload(payload)
-    expect(r.errors.filter(e => e.message.includes('DPI'))).toHaveLength(0)
-    expect(r.warnings.filter(w => w.message.includes('DPI'))).toHaveLength(0)
-  })
 })

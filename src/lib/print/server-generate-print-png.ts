@@ -188,7 +188,7 @@ export async function generateViewPNGFromDesignData(
     storage_path: storagePath,
     public_url: publicUrl,
     template_id: templateId,
-    print_area_px: printZone,
+    print_area_px: { width: outW, height: outH },
     print_area_mm: { width: physW * 10, height: physH * 10 },
     save_type: 'designer',
     generated_at: new Date().toISOString(),
@@ -288,7 +288,7 @@ export async function generatePrintPNG(
     storage_path: storagePath,
     public_url: publicUrl,
     template_id: templateId,
-    print_area_px: printZone,
+    print_area_px: { width: outW, height: outH },
     print_area_mm: {
       width: (printZone.width / 72) * 25.4,
       height: (printZone.height / 72) * 25.4,
