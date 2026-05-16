@@ -674,8 +674,11 @@ class DesignerWidget {
 
         if (!view) return;
 
-        fabric.Image.fromURL(view.image_url, (img) => {
-            this.renderTemplateView(view, img);
+        return new Promise((resolve) => {
+            fabric.Image.fromURL(view.image_url, (img) => {
+                this.renderTemplateView(view, img);
+                resolve();
+            });
         });
     }
 
@@ -2435,7 +2438,9 @@ class DesignerWidget {
         
         // Restore variation images - handle both formats
         for (const [key, value] of Object.entries(designData.variationImages || {})) {
-            const [variationId, viewId] = key.split('_');
+            const underscoreIdx = key.indexOf('_');
+            const variationId = underscoreIdx >= 0 ? key.slice(0, underscoreIdx) : key;
+            const viewId = underscoreIdx >= 0 ? key.slice(underscoreIdx + 1) : '';
             
             if (Array.isArray(value)) {
                 // New format: array of images
@@ -2448,9 +2453,9 @@ class DesignerWidget {
             }
         }
     
-        // Load the template again to refresh the view
-        this.loadTemplate(designData.templateId);
-    
+        // Bilder aus dem gespeicherten Design auf Canvas laden
+        this.loadViewImage();
+
         // Store the current design ID
         this.currentDesignId = design.id;
         this.modalNameInput.value = design.name;
@@ -2459,8 +2464,10 @@ class DesignerWidget {
 
     async restoreViewImage(variationId, viewId, imageData) {
         try {
-            const img = await Image.fromURL(imageData.url);
-            
+            const img = await new Promise((resolve) => {
+                fabric.Image.fromURL(imageData.url, (img) => resolve(img));
+            });
+
             // Set image properties
             img.set({
                 originX: 'center',
