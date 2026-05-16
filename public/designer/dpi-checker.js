@@ -202,10 +202,9 @@
 
   // ── attach Fabric canvas object:added ─────────────────────────────────────────
 
-  function tryAttachCanvas() {
-    var instance = window.designerInstance
-    var canvas   = instance && instance.canvas
-    if (!canvas) return false
+  function attachCanvas(inst) {
+    var canvas = inst && inst.fabricCanvas
+    if (!canvas || typeof canvas.on !== 'function') return false
     canvas.on('object:added', function (e) {
       // Only react within 10 s of the last file-select event
       if (!lastResult || Date.now() - lastUploadAt > 10000) return
@@ -218,11 +217,19 @@
     return true
   }
 
-  // Retry until both are attached
+  // Listen for the bundle's designerReady event (most reliable)
+  window.addEventListener('designerReady', function (e) {
+    var inst = (e.detail && e.detail.instance) || window.designerInstance
+    if (inst) canvasAttached = attachCanvas(inst)
+  })
+
+  // Fallback poll for cases where the event fired before this script loaded
   var attempts = 0
   var iv = setInterval(function () {
     if (!inputAttached)  inputAttached  = tryAttachInput()
-    if (!canvasAttached) canvasAttached = tryAttachCanvas()
+    if (!canvasAttached && window.designerInstance && window.designerInstance.fabricCanvas) {
+      canvasAttached = attachCanvas(window.designerInstance)
+    }
     if ((inputAttached && canvasAttached) || ++attempts > 60) clearInterval(iv)
   }, 300)
 })()

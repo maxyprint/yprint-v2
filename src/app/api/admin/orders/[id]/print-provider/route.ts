@@ -65,11 +65,16 @@ async function buildAkdPayload(orderId: string): Promise<
 
     const { data: pngs } = await supabase
       .from('design_pngs')
-      .select('view_id, public_url, print_area_mm')
+      .select('view_id, public_url, print_area_mm, print_area_px')
       .eq('design_id', item.design_id as string)
       .neq('save_type', 'empty')
 
-    type PngRow = { view_id: string; public_url: string; print_area_mm: { width: number; height: number } | null }
+    type PngRow = {
+      view_id: string
+      public_url: string
+      print_area_mm: { width: number; height: number } | null
+      print_area_px: { width: number; height: number } | null
+    }
     const pngMap = Object.fromEntries((pngs ?? []).map((p) => [(p as PngRow).view_id, p as PngRow]))
 
     const printPositions = []
@@ -112,6 +117,9 @@ async function buildAkdPayload(orderId: string): Promise<
         scaling:        'proportional',
         printQuality:   'standard',
         printFile:      png.public_url,
+        // Validation metadata — stripped before sending to AKD
+        _px_width:  png.print_area_px?.width,
+        _px_height: png.print_area_px?.height,
       })
     }
 
@@ -138,7 +146,8 @@ async function buildAkdPayload(orderId: string): Promise<
       recipient: {
         name:       [addr.first_name, addr.last_name].filter(Boolean).join(' '),
         // address_line2 mapped here for AKD (no dedicated field in their API)
-        street:     [addr.street, addr.street_nr, addr.address_line2].filter(Boolean).join(', '),
+        // street + house number joined with space; address_line2 appended with comma
+        street:     [[addr.street, addr.street_nr].filter(Boolean).join(' '), addr.address_line2].filter(Boolean).join(', '),
         city:       addr.city,
         postalCode: addr.zip,
         country:    addr.country || 'DE',
@@ -151,6 +160,25 @@ async function buildAkdPayload(orderId: string): Promise<
   }
 
   return { payload, validation: validateAkdPayload(payload) }
+}
+
+// Strip underscore-prefixed metadata keys from printPositions before sending to AKD
+function stripMetaFields(payload: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...payload }
+  if (Array.isArray(out.orderPositions)) {
+    out.orderPositions = (out.orderPositions as Record<string, unknown>[]).map(op => {
+      const cleanOp = { ...op }
+      if (Array.isArray(cleanOp.printPositions)) {
+        cleanOp.printPositions = (cleanOp.printPositions as Record<string, unknown>[]).map(pp => {
+          const cleanPp = { ...pp }
+          for (const k of Object.keys(cleanPp)) if (k.startsWith('_')) delete cleanPp[k]
+          return cleanPp
+        })
+      }
+      return cleanOp
+    })
+  }
+  return out
 }
 
 // ── GET  — preview (no send) ──────────────────────────────────────────────────
@@ -202,7 +230,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const response = await fetch(AKD_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-App-Id': APP_ID, 'X-Api-Key': API_KEY },
-    body: JSON.stringify(result.payload),
+    body: JSON.stringify(stripMetaFields(result.payload)),
   })
 
   const akdResult = await response.json().catch(() => ({ message: 'Invalid response from AKD' }))

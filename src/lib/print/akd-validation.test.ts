@@ -254,4 +254,55 @@ describe('validateAkdPayload', () => {
     expect(r.valid).toBe(false)
     expect(r.errors.length).toBeGreaterThan(0)
   })
+
+  // ── DPI validation ───────────────────────────────────────────────────────────
+
+  it('accepts pixel dimensions that satisfy 300 DPI for given print zone', () => {
+    // 200mm @ 300 DPI = 200 / 25.4 * 300 ≈ 2362px
+    const payload = {
+      ...VALID_PAYLOAD,
+      orderPositions: [{
+        ...VALID_ORDER_POSITION,
+        printPositions: [{ ...VALID_PRINT_POSITION, width: 200, height: 280, _px_width: 2363, _px_height: 3308 }],
+      }],
+    }
+    const r = validateAkdPayload(payload)
+    expect(r.errors.filter(e => e.field.includes('printFile') && e.message.includes('DPI'))).toHaveLength(0)
+    expect(r.warnings.filter(w => w.field.includes('printFile') && w.message.includes('DPI'))).toHaveLength(0)
+  })
+
+  it('warns when pixel dimensions yield less than 300 DPI but at least 150 DPI', () => {
+    // 200mm @ 200 DPI = ~1575px
+    const payload = {
+      ...VALID_PAYLOAD,
+      orderPositions: [{
+        ...VALID_ORDER_POSITION,
+        printPositions: [{ ...VALID_PRINT_POSITION, width: 200, _px_width: 1575 }],
+      }],
+    }
+    const r = validateAkdPayload(payload)
+    expect(r.valid).toBe(true)
+    expect(r.warnings.some(w => w.field.includes('printFile') && w.message.includes('DPI'))).toBe(true)
+  })
+
+  it('errors when pixel dimensions yield less than 150 DPI', () => {
+    // 200mm @ 100 DPI = ~787px
+    const payload = {
+      ...VALID_PAYLOAD,
+      orderPositions: [{
+        ...VALID_ORDER_POSITION,
+        printPositions: [{ ...VALID_PRINT_POSITION, width: 200, _px_width: 787 }],
+      }],
+    }
+    const r = validateAkdPayload(payload)
+    expect(r.valid).toBe(false)
+    expect(r.errors.some(e => e.field.includes('printFile') && e.message.includes('DPI'))).toBe(true)
+  })
+
+  it('skips DPI check when _px_width is absent', () => {
+    // No pixel metadata — should not produce any DPI-related issue
+    const r = validateAkdPayload(VALID_PAYLOAD)
+    expect(r.errors.filter(e => e.message.includes('DPI'))).toHaveLength(0)
+    expect(r.warnings.filter(w => w.message.includes('DPI'))).toHaveLength(0)
+  })
 })

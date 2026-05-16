@@ -174,6 +174,31 @@ export function validateAkdPayload(payload: unknown): ValidationResult {
       if (typeof resolution === 'number' && resolution < 150) {
         warn(warnings, `${ppPrefix}.resolution`, `Auflösung ${resolution} DPI ist unter 150 — mögliche Druckqualitätsprobleme`)
       }
+
+      // DPI check: compare stored pixel dimensions against print zone size at 300 DPI
+      const PX_PER_MM = 300 / 25.4
+      const pxW = ppp._px_width as number | undefined
+      const pxH = ppp._px_height as number | undefined
+      if (pxW && typeof width === 'number' && width > 0) {
+        const actualDpi = (pxW / width) * 25.4
+        if (actualDpi < 150) {
+          err(errors, `${ppPrefix}.printFile`,
+            `PNG-Breite ${pxW}px für ${width}mm ergibt nur ${Math.round(actualDpi)} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(width * PX_PER_MM)}px)`)
+        } else if (actualDpi < 300) {
+          warn(warnings, `${ppPrefix}.printFile`,
+            `PNG-Breite ${pxW}px für ${width}mm ergibt ${Math.round(actualDpi)} DPI — 300 DPI empfohlen (${Math.round(width * PX_PER_MM)}px)`)
+        }
+      }
+      if (pxH && typeof height === 'number' && height > 0) {
+        const actualDpi = (pxH / height) * 25.4
+        if (actualDpi < 150) {
+          err(errors, `${ppPrefix}.printFile`,
+            `PNG-Höhe ${pxH}px für ${height}mm ergibt nur ${Math.round(actualDpi)} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(height * PX_PER_MM)}px)`)
+        } else if (actualDpi < 300) {
+          warn(warnings, `${ppPrefix}.printFile`,
+            `PNG-Höhe ${pxH}px für ${height}mm ergibt ${Math.round(actualDpi)} DPI — 300 DPI empfohlen (${Math.round(height * PX_PER_MM)}px)`)
+        }
+      }
     })
   })
 

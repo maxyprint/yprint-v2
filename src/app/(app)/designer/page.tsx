@@ -243,7 +243,7 @@ function DesignerInner() {
           <Script src="/designer/print-zone-png-generator.js" strategy="afterInteractive" />
           <Script src="/designer/generate-png-for-save.js" strategy="afterInteractive" />
           <Script src="/designer/designer.bundle.js" strategy="afterInteractive" />
-          <Script src="/designer/dpi-checker.js" strategy="afterInteractive" />
+          <Script src="/designer/dpi-checker.js?v=3" strategy="afterInteractive" />
           <Script src="/designer/delete-handler.js" strategy="afterInteractive" />
         </>
       )}

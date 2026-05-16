@@ -389,7 +389,7 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
 
   const base64 = printPngDataUrl.replace(/^data:image\/png;base64,/, '')
   const buffer = Buffer.from(base64, 'base64')
-  const storagePath = `${userId}/${designId}/${viewId}_print.png`
+  const storagePath = `${userId}/${designId}/${designId}_${viewId}.png`
 
   await supabase.storage.createBucket('print-pngs', { public: true })
   await supabase.storage.updateBucket('print-pngs', { public: true })
