@@ -157,19 +157,21 @@ export async function generateViewPNGFromDesignData(
     views: Record<string, { printZone: { left: number; top: number; width: number; height: number } }>
   }> | null
 
-  const rawPz = variations?.[variationId]?.views?.[viewId]?.printZone
-  if (!rawPz) return null
+  // Require a printZone entry to exist (confirms the view is configured), but don't use
+  // the zone percentage for output dimensions — the canvas always represents the full
+  // physical print area, so we export at physical_width_cm × physical_height_cm at 300 DPI.
+  if (!variations?.[variationId]?.views?.[viewId]?.printZone) return null
 
-  const printZone = getPrintZonePx(rawPz)
-
-  // Output at 300 DPI based on physical print zone size — NOT canvas pixel dimensions.
-  // Canvas aspect ratio ≠ physical shirt aspect ratio, so X and Y scales differ.
-  const physW = (rawPz.width / 100) * (tmpl?.physical_width_cm ?? 45)
-  const physH = (rawPz.height / 100) * (tmpl?.physical_height_cm ?? 55)
+  // Full physical dimensions → output pixel size at 300 DPI
+  const physW = tmpl?.physical_width_cm ?? 45
+  const physH = tmpl?.physical_height_cm ?? 55
   const outW = Math.round((physW / CM_PER_INCH) * PRINT_DPI)
   const outH = Math.round((physH / CM_PER_INCH) * PRINT_DPI)
 
-  const outputBuffer = await compositeImages(images, printZone, outW, outH, supabase)
+  // Image positions in variationImages are in canvas coords (0..CANVAS_W × 0..CANVAS_H).
+  // Map the full canvas to the full physical output so positions scale correctly.
+  const fullCanvas = { left: 0, top: 0, width: CANVAS_W, height: CANVAS_H }
+  const outputBuffer = await compositeImages(images, fullCanvas, outW, outH, supabase)
   if (!outputBuffer) return null
 
   await ensurePrintBucket(supabase)
