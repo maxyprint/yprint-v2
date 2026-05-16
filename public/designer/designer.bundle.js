@@ -195,6 +195,7 @@ class DesignerWidget {
         
         // Store view-specific images and their transforms per variation
         this.variationImages = new Map(); // Key format: `${variationId}_${viewId}`
+        this._renderGen = 0; // Generation counter — stale loadTemplateView callbacks are ignored
 
         // In-memory storage for temporary images (non-logged users)
         this.tempImages = [];
@@ -674,8 +675,10 @@ class DesignerWidget {
 
         if (!view) return;
 
+        const gen = ++this._renderGen;
         return new Promise((resolve) => {
             fabric.Image.fromURL(view.image_url, (img) => {
+                if (gen !== this._renderGen) { resolve(); return; }
                 this.renderTemplateView(view, img);
                 resolve();
             });
