@@ -261,7 +261,7 @@ async function handleSaveDesign(userId: string, body: FormData) {
   const designId = body.get('design_id') as string | null
   const templateId = body.get('template_id') as string
   const designDataRaw = body.get('design_data') as string
-  const name = (body.get('design_name') as string) || 'Mein Design'
+  const name = (body.get('name') as string) || (body.get('design_name') as string) || 'Mein Design'
   const productName = (body.get('product_name') as string) || ''
   const variationsRaw = (body.get('variations') as string) || '{}'
 

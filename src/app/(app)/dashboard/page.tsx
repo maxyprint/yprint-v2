@@ -4,15 +4,196 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import type { UserDesign } from '@/types'
+import type { UserDesign, DesignTemplate } from '@/types'
 import { formatDate, formatPrice } from '@/lib/utils'
 
-export default function DashboardPage() {
-  const { user } = useAuthStore()
+// UserDesign as returned by /api/designs (partial + fallback_image)
+type DesignListItem = Pick<UserDesign, 'id' | 'name' | 'product_name' | 'product_images' | 'template_id' | 'created_at' | 'updated_at'> & {
+  fallback_image: string | null
+}
+
+// ── Order Modal ───────────────────────────────────────────────────────────────
+
+function OrderModal({ design, onClose }: { design: DesignListItem; onClose: () => void }) {
   const addItem = useCartStore(s => s.addItem)
-  const [designs, setDesigns] = useState<UserDesign[]>([])
+  const [template, setTemplate] = useState<DesignTemplate | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedSize, setSelectedSize] = useState('')
+  const [selectedVar, setSelectedVar] = useState('')
+  const [added, setAdded] = useState(false)
+
+  useEffect(() => {
+    if (!design.template_id) { setLoading(false); return }
+    fetch(`/api/templates/${design.template_id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          const t: DesignTemplate = data.data
+          setTemplate(t)
+          const firstSize = t.sizes?.[0]?.name || ''
+          const defaultVar = Object.entries(t.variations || {}).find(([, v]) => v.is_default)?.[0]
+            || Object.keys(t.variations || {})[0] || ''
+          setSelectedSize(firstSize)
+          setSelectedVar(defaultVar)
+        }
+      })
+      .finally(() => setLoading(false))
+  }, [design.template_id])
+
+  const unitPrice = template
+    ? (template.pricing?.[selectedSize]?.base ?? template.base_price ?? 0)
+    : 0
+
+  const variation = template?.variations?.[selectedVar]
+
+  const handleAdd = () => {
+    if (!template || !selectedSize || !selectedVar) return
+    addItem({
+      design_id: design.id,
+      design_name: design.name,
+      template_id: design.template_id!,
+      template_name: template.name,
+      variation_id: selectedVar,
+      variation_name: variation?.name || '',
+      size: selectedSize,
+      quantity: 1,
+      unit_price: unitPrice,
+    })
+    setAdded(true)
+    setTimeout(onClose, 800)
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+      onClick={onClose}
+    >
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }} />
+      <div
+        style={{ position: 'relative', background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#111827' }}>Design bestellen</h2>
+          <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#6b7280' }}>{design.name}</p>
+        </div>
+
+        <div style={{ padding: '20px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: '14px' }}>Lädt…</div>
+          ) : !template ? (
+            <p style={{ fontSize: '13px', color: '#ef4444', margin: 0 }}>Template nicht gefunden.</p>
+          ) : (
+            <>
+              {/* Size picker */}
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Größe</p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {template.sizes.map(sz => (
+                    <button
+                      key={sz.id}
+                      onClick={() => setSelectedSize(sz.name)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        border: selectedSize === sz.name ? '2px solid #0079FF' : '1px solid #d1d5db',
+                        background: selectedSize === sz.name ? 'rgba(0,121,255,0.08)' : '#fff',
+                        color: selectedSize === sz.name ? '#0079FF' : '#374151',
+                        fontSize: '13px',
+                        fontWeight: selectedSize === sz.name ? 700 : 400,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {sz.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Variation picker */}
+              {Object.keys(template.variations).length > 1 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Farbe</p>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {Object.entries(template.variations).map(([key, v]) => (
+                      <button
+                        key={key}
+                        onClick={() => setSelectedVar(key)}
+                        title={v.name}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          border: selectedVar === key ? '3px solid #0079FF' : '2px solid #d1d5db',
+                          background: v.color || '#e5e7eb',
+                          cursor: 'pointer',
+                          outline: selectedVar === key ? '2px solid rgba(0,121,255,0.3)' : 'none',
+                          outlineOffset: '2px',
+                          transition: 'all 0.15s',
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {variation && (
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0' }}>{variation.name}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Price */}
+              <div style={{ marginBottom: '20px', padding: '12px 16px', background: '#f9fafb', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', color: '#6b7280' }}>Preis pro Stück</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>{formatPrice(unitPrice)}</span>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={onClose}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #d1d5db', background: '#fff', fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={handleAdd}
+                  disabled={!selectedSize || !selectedVar || added}
+                  style={{
+                    flex: 2,
+                    padding: '10px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: added ? '#22c55e' : '#0079FF',
+                    color: '#fff',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: added ? 'default' : 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  {added ? '✓ Hinzugefügt' : 'In den Warenkorb'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  useAuthStore(s => s.user)
+  const [designs, setDesigns] = useState<DesignListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [orderTarget, setOrderTarget] = useState<DesignListItem | null>(null)
 
   useEffect(() => {
     fetch('/api/designs')
@@ -34,8 +215,13 @@ export default function DashboardPage() {
     }
   }
 
+  const previewUrl = (design: DesignListItem): string | null =>
+    design.product_images?.[0]?.url || design.fallback_image || null
+
   return (
     <div>
+      {orderTarget && <OrderModal design={orderTarget} onClose={() => setOrderTarget(null)} />}
+
       {/* Page header */}
       <div
         style={{
@@ -204,9 +390,9 @@ export default function DashboardPage() {
                   style={{ flex: 1, textDecoration: 'none', display: 'block' }}
                 >
                   <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden' }}>
-                    {design.product_images?.[0]?.url ? (
+                    {previewUrl(design) ? (
                       <img
-                        src={design.product_images[0].url}
+                        src={previewUrl(design)!}
                         alt={design.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f9fafb' }}
                       />
@@ -262,22 +448,9 @@ export default function DashboardPage() {
                 >
                   {/* Order button */}
                   <button
-                    onClick={() => {
-                      if (design.template_id) {
-                        addItem({
-                          design_id: design.id,
-                          variation_id: '',
-                          variation_name: '',
-                          size: '',
-                          quantity: 1,
-                          unit_price: 0,
-                          design_name: design.name,
-                          template_id: design.template_id!,
-                          template_name: '',
-                        })
-                      }
-                    }}
-                    title="Erneut bestellen"
+                    onClick={() => design.template_id && setOrderTarget(design)}
+                    title="Bestellen"
+                    disabled={!design.template_id}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -287,10 +460,10 @@ export default function DashboardPage() {
                       background: 'transparent',
                       border: 'none',
                       borderRadius: '6px',
-                      cursor: 'pointer',
+                      cursor: design.template_id ? 'pointer' : 'not-allowed',
                       fontSize: '10px',
                       fontWeight: 500,
-                      color: '#374151',
+                      color: design.template_id ? '#374151' : '#d1d5db',
                       transition: 'all 0.2s ease',
                       fontFamily: 'inherit',
                     }}
@@ -298,7 +471,7 @@ export default function DashboardPage() {
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 512 512">
                       <path d="M500.33 0h-47.41a12 12 0 0 0-12 12.57l4 72A4 4 0 0 1 441 89a405.66 405.66 0 0 0-93.07-33.46C230.41 28.09 112 49.36 21.24 143.75A32 32 0 0 0 22 189.8L39.9 207.7a32 32 0 0 0 46.29-.39 288.86 288.86 0 0 1 88.16-67.77c52.82-23.25 109.4-32.48 167.42-27.08a304.34 304.34 0 0 1 86.58 25.81 4 4 0 0 1 1.67 5.27L411.6 183a4 4 0 0 0 3.82 5.42h84.66a12 12 0 0 0 12-12V12a12 12 0 0 0-11.75-12zM490.89 320a32 32 0 0 0-46.29.39 288.86 288.86 0 0 1-88.16 67.77c-52.82 23.25-109.4 32.48-167.42 27.08a304.34 304.34 0 0 1-86.58-25.81 4 4 0 0 1-1.67-5.27l18.42-39.48a4 4 0 0 0-3.82-5.42H30.71A12 12 0 0 0 18.63 352v120a12 12 0 0 0 12 12h47.41a12 12 0 0 0 12-12.57l-4-72a4 4 0 0 1 3.86-4.26 405.66 405.66 0 0 0 93.07 33.46c117.52 27.45 235.93 6.18 326.73-88.21a32 32 0 0 0-.81-46.42z" />
                     </svg>
-                    <span>Order</span>
+                    <span>Bestellen</span>
                   </button>
 
                   {/* Edit link */}

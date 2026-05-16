@@ -244,6 +244,7 @@ function DesignerInner() {
           <Script src="/designer/generate-png-for-save.js" strategy="afterInteractive" />
           <Script src="/designer/designer.bundle.js" strategy="afterInteractive" />
           <Script src="/designer/dpi-checker.js" strategy="afterInteractive" />
+          <Script src="/designer/delete-handler.js" strategy="afterInteractive" />
         </>
       )}
     </>

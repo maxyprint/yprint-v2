@@ -15,7 +15,32 @@ export async function GET() {
     .order('updated_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true, data: data || [] })
+
+  const designs = data || []
+  const missingImageIds = designs
+    .filter(d => !d.product_images || (d.product_images as unknown[]).length === 0)
+    .map(d => d.id)
+
+  let pngFallbacks: Record<string, string> = {}
+  if (missingImageIds.length > 0) {
+    const { data: pngs } = await supabase
+      .from('design_pngs')
+      .select('design_id, public_url')
+      .in('design_id', missingImageIds)
+      .neq('save_type', 'empty')
+      .order('generated_at', { ascending: false })
+    for (const png of pngs ?? []) {
+      const p = png as { design_id: string; public_url: string }
+      if (!pngFallbacks[p.design_id]) pngFallbacks[p.design_id] = p.public_url
+    }
+  }
+
+  const enriched = designs.map(d => ({
+    ...d,
+    fallback_image: pngFallbacks[d.id] ?? null,
+  }))
+
+  return NextResponse.json({ success: true, data: enriched })
 }
 
 export async function POST(request: Request) {
