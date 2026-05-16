@@ -175,11 +175,14 @@ export function validateAkdPayload(payload: unknown): ValidationResult {
         warn(warnings, `${ppPrefix}.resolution`, `Auflösung ${resolution} DPI ist unter 150 — mögliche Druckqualitätsprobleme`)
       }
 
-      // DPI check: compare stored pixel dimensions against print zone size at 300 DPI
+      // DPI check: compare stored pixel dimensions against print zone size at 300 DPI.
+      // Skip when _px_width is fractional — that means it's a legacy canvas-coordinate
+      // value (e.g. 199.584px on a 616px canvas), not an actual PNG pixel count.
+      // PNG IHDR dimensions are always integers; canvas coords are always floats.
       const PX_PER_MM = 300 / 25.4
       const pxW = ppp._px_width as number | undefined
       const pxH = ppp._px_height as number | undefined
-      if (pxW && typeof width === 'number' && width > 0) {
+      if (pxW && Number.isInteger(pxW) && typeof width === 'number' && width > 0) {
         const actualDpi = (pxW / width) * 25.4
         if (actualDpi < 150) {
           err(errors, `${ppPrefix}.printFile`,
@@ -189,7 +192,7 @@ export function validateAkdPayload(payload: unknown): ValidationResult {
             `PNG-Breite ${pxW}px für ${width}mm ergibt ${Math.round(actualDpi)} DPI — 300 DPI empfohlen (${Math.round(width * PX_PER_MM)}px)`)
         }
       }
-      if (pxH && typeof height === 'number' && height > 0) {
+      if (pxH && Number.isInteger(pxH) && typeof height === 'number' && height > 0) {
         const actualDpi = (pxH / height) * 25.4
         if (actualDpi < 150) {
           err(errors, `${ppPrefix}.printFile`,
