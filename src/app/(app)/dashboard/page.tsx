@@ -7,9 +7,13 @@ import { useCartStore } from '@/store/cart'
 import type { UserDesign, DesignTemplate } from '@/types'
 import { formatDate, formatPrice } from '@/lib/utils'
 
-// UserDesign as returned by /api/designs (partial + fallback_image)
+type PrintZone = { left: number; top: number; width: number; height: number }
+
+// UserDesign as returned by /api/designs (partial + enriched fields)
 type DesignListItem = Pick<UserDesign, 'id' | 'name' | 'product_name' | 'product_images' | 'template_id' | 'created_at' | 'updated_at'> & {
-  fallback_image: string | null
+  design_png:  string | null  // print PNG for overlay
+  shirt_image: string | null  // base shirt photo from template
+  print_zone:  PrintZone | null  // printZone percentages for positioning overlay
 }
 
 // ── Order Modal ───────────────────────────────────────────────────────────────
@@ -215,8 +219,44 @@ export default function DashboardPage() {
     }
   }
 
-  const previewUrl = (design: DesignListItem): string | null =>
-    design.product_images?.[0]?.url || design.fallback_image || null
+  // Renders the design image: product_images mockup → CSS composite → design PNG alone
+  const renderDesignImage = (design: DesignListItem) => {
+    const savedMockup = design.product_images?.[0]?.url ?? null
+
+    if (savedMockup) {
+      return <img src={savedMockup} alt={design.name} style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f5f5f5' }} />
+    }
+
+    if (design.shirt_image) {
+      const pz = design.print_zone
+      const overlayStyle: React.CSSProperties = pz ? {
+        position: 'absolute',
+        left:   `${pz.left - pz.width  / 2}%`,
+        top:    `${pz.top  - pz.height / 2}%`,
+        width:  `${pz.width}%`,
+        pointerEvents: 'none',
+      } : { position: 'absolute', inset: '10%', width: '80%' }
+
+      return (
+        <div style={{ position: 'relative', width: '100%', height: '100%', background: '#f5f5f5' }}>
+          <img src={design.shirt_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          {design.design_png && <img src={design.design_png} alt={design.name} style={overlayStyle} />}
+        </div>
+      )
+    }
+
+    if (design.design_png) {
+      return <img src={design.design_png} alt={design.name} style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#f5f5f5' }} />
+    }
+
+    return (
+      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="32" height="32" fill="white" opacity={0.7} viewBox="0 0 24 24">
+          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -390,28 +430,7 @@ export default function DashboardPage() {
                   style={{ flex: 1, textDecoration: 'none', display: 'block' }}
                 >
                   <div style={{ position: 'relative', width: '100%', height: '160px', overflow: 'hidden' }}>
-                    {previewUrl(design) ? (
-                      <img
-                        src={previewUrl(design)!}
-                        alt={design.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f9fafb' }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <svg width="32" height="32" fill="white" opacity={0.7} viewBox="0 0 24 24">
-                          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
-                      </div>
-                    )}
+                    {renderDesignImage(design)}
                   </div>
                   <div style={{ padding: '12px', flex: 1 }}>
                     <h3

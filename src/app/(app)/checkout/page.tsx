@@ -57,11 +57,12 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true)
   const [initError, setInitError] = useState<string | null>(null)
   const [testLoading, setTestLoading] = useState(false)
+  const [shippingCents, setShippingCents] = useState(500)
 
   const isAdmin = user?.role === 'admin'
 
   const cartTotal = total()
-  const shipping = cartTotal > 0 ? 5 : 0
+  const shipping = cartTotal > 0 ? shippingCents / 100 : 0
   const orderTotal = cartTotal + shipping
 
   const handleAddressChange = async (id: string) => {
@@ -83,6 +84,10 @@ export default function CheckoutPage() {
 
     async function init() {
       try {
+        // Step 0: fetch shipping price
+        const shippingRes = await fetch('/api/settings/shipping').then(r => r.json())
+        if (shippingRes.standard_cents) setShippingCents(shippingRes.standard_cents)
+
         // Step 1: sync cart
         const cartRes = await fetch('/api/cart', {
           method: 'POST',

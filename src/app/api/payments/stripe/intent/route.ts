@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/helpers'
 import { stripe, getOrCreateStripeCustomer } from '@/lib/stripe/client'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getShippingCents } from '@/lib/settings/shipping'
 
 export async function POST(request: Request) {
   const { user, error } = await requireAuth()
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
 
   const items = cart.items as Array<{ unit_price: number; quantity: number }>
   const subtotalCents = items.reduce((sum, i) => sum + Math.round(i.unit_price * 100 * i.quantity), 0)
-  const shippingCents = 500
+  const shippingCents = await getShippingCents()
 
   let discountCents = 0
   if (cart.coupon_code) {
