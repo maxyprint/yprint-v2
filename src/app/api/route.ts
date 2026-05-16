@@ -403,6 +403,15 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
 
   const { data: { publicUrl } } = supabase.storage.from('print-pngs').getPublicUrl(storagePath)
 
+  // Read actual PNG pixel dimensions from IHDR chunk (bytes 16–23) — the bundle
+  // sends print_area_px in canvas-coordinate pixels (not PNG file pixels), so we
+  // override it with the ground-truth dimensions from the file header.
+  const pngPixelWidth  = buffer.length > 24 ? buffer.readUInt32BE(16) : 0
+  const pngPixelHeight = buffer.length > 24 ? buffer.readUInt32BE(20) : 0
+  const actualPrintAreaPx = pngPixelWidth > 0
+    ? { width: pngPixelWidth, height: pngPixelHeight }
+    : JSON.parse(printAreaPxRaw)
+
   await supabase.from('design_pngs').delete().eq('design_id', designId).eq('view_id', viewId)
   await supabase.from('design_pngs').insert({
     design_id: designId,
@@ -411,7 +420,7 @@ async function handleSaveDesignPNG(userId: string, body: FormData) {
     storage_path: storagePath,
     public_url: publicUrl,
     template_id: templateId,
-    print_area_px: JSON.parse(printAreaPxRaw),
+    print_area_px: actualPrintAreaPx,
     print_area_mm: JSON.parse(printAreaMmRaw),
     metadata: JSON.parse(metadataRaw),
     save_type: 'designer',
