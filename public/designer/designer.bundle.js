@@ -2398,6 +2398,7 @@ class DesignerWidget {
         const state = {
             templateId: this.activeTemplateId,
             currentVariation: this.currentVariation,
+            currentView: this.currentView,
             variationImages: {}
         };
     
@@ -2453,8 +2454,17 @@ class DesignerWidget {
             }
         }
     
-        // Bilder aus dem gespeicherten Design auf Canvas laden
-        this.loadViewImage();
+        // Korrekte View bestimmen: gespeicherte currentView bevorzugen,
+        // sonst aus variationImages-Keys inferieren (Fallback für ältere Designs)
+        const variationPrefix = this.currentVariation + '_';
+        const targetViewId = designData.currentView
+            || Object.keys(designData.variationImages || {})
+                .find(key => key.startsWith(variationPrefix))
+                ?.slice(variationPrefix.length)
+            || this.currentView;
+
+        this.currentView = targetViewId;
+        await this.loadTemplateView(targetViewId);
 
         // Store the current design ID
         this.currentDesignId = design.id;
