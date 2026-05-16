@@ -17,6 +17,7 @@ export type UserAddress = {
   company: string | null
   street: string
   street_nr: string
+  address_line2: string | null
   zip: string
   city: string
   country: string

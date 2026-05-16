@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/helpers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calcPrintCoords, MeasurementsData } from '@/lib/print/calcCoords'
+import { validateAkdPayload, type ValidationResult } from '@/lib/print/akd-validation'
 
 const AKD_API_URL = 'https://api.allesklardruck.de/order'
 
@@ -20,7 +21,9 @@ const SENDER = {
 
 // ── Shared payload builder ────────────────────────────────────────────────────
 
-async function buildAkdPayload(orderId: string) {
+async function buildAkdPayload(orderId: string): Promise<
+  { payload: Record<string, unknown>; validation: ValidationResult } | { error: string; status: number }
+> {
   const supabase = createAdminClient()
 
   const { data: order, error: orderError } = await supabase
@@ -134,10 +137,12 @@ async function buildAkdPayload(orderId: string) {
     shipping: {
       recipient: {
         name:       [addr.first_name, addr.last_name].filter(Boolean).join(' '),
-        street:     [addr.street, addr.street_nr].filter(Boolean).join(' '),
+        // address_line2 mapped here for AKD (no dedicated field in their API)
+        street:     [addr.street, addr.street_nr, addr.address_line2].filter(Boolean).join(', '),
         city:       addr.city,
         postalCode: addr.zip,
         country:    addr.country || 'DE',
+        // company only for real businesses — address_line2 must not end up here
         ...(addr.company ? { company: addr.company } : {}),
       },
       sender: SENDER,
@@ -145,7 +150,7 @@ async function buildAkdPayload(orderId: string) {
     orderPositions,
   }
 
-  return { payload }
+  return { payload, validation: validateAkdPayload(payload) }
 }
 
 // ── GET  — preview (no send) ──────────────────────────────────────────────────
@@ -157,12 +162,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   const result = await buildAkdPayload(id)
   if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
-  return NextResponse.json({ success: true, data: result.payload })
+  return NextResponse.json({ success: true, data: { payload: result.payload, validation: result.validation } })
 }
 
 // ── POST — build payload and send ────────────────────────────────────────────
 
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const { user, error } = await requireAdmin()
   if (error || !user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -175,6 +180,24 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   const result = await buildAkdPayload(id)
   if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
+
+  const force = new URL(request.url).searchParams.get('force') === 'true'
+  const { validation } = result
+
+  // Errors always block — force=true cannot override
+  if (validation.errors.length > 0) {
+    return NextResponse.json(
+      { error: 'Payload hat kritische Fehler und kann nicht gesendet werden.', validation },
+      { status: 422 }
+    )
+  }
+  // Warnings block without explicit force confirmation
+  if (validation.warnings.length > 0 && !force) {
+    return NextResponse.json(
+      { error: 'Payload hat Warnungen. Bitte prüfen und mit force=true bestätigen.', validation },
+      { status: 409 }
+    )
+  }
 
   const response = await fetch(AKD_API_URL, {
     method: 'POST',

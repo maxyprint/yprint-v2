@@ -3,9 +3,34 @@
 import { useState, useEffect } from 'react'
 import type { UserAddress } from '@/types'
 
+const COUNTRY_OPTIONS = [
+  { value: 'DE', label: 'Deutschland' },
+  { value: 'AT', label: 'Österreich' },
+  { value: 'CH', label: 'Schweiz' },
+  { value: 'FR', label: 'Frankreich' },
+  { value: 'NL', label: 'Niederlande' },
+  { value: 'BE', label: 'Belgien' },
+  { value: 'IT', label: 'Italien' },
+  { value: 'ES', label: 'Spanien' },
+  { value: 'PL', label: 'Polen' },
+  { value: 'LU', label: 'Luxemburg' },
+  { value: 'DK', label: 'Dänemark' },
+  { value: 'SE', label: 'Schweden' },
+  { value: 'FI', label: 'Finnland' },
+  { value: 'NO', label: 'Norwegen' },
+  { value: 'CZ', label: 'Tschechien' },
+  { value: 'SK', label: 'Slowakei' },
+  { value: 'HU', label: 'Ungarn' },
+  { value: 'RO', label: 'Rumänien' },
+  { value: 'PT', label: 'Portugal' },
+  { value: 'IE', label: 'Irland' },
+  { value: 'GR', label: 'Griechenland' },
+]
+
 const EMPTY_FORM = {
   first_name: '', last_name: '', company: '',
-  street: '', street_nr: '', zip: '', city: '', country: 'DE', is_default: false,
+  street: '', street_nr: '', address_line2: '',
+  zip: '', city: '', country: 'DE', is_default: false,
 }
 
 export default function AddressesPage() {
@@ -85,7 +110,8 @@ export default function AddressesPage() {
                   </div>
                   {addr.company && <p className="text-[rgba(0,0,0,0.6)]">{addr.company}</p>}
                   <p className="text-[rgba(0,0,0,0.6)]">{addr.street} {addr.street_nr}</p>
-                  <p className="text-[rgba(0,0,0,0.6)]">{addr.zip} {addr.city}</p>
+                  {addr.address_line2 && <p className="text-[rgba(0,0,0,0.6)]">{addr.address_line2}</p>}
+                  <p className="text-[rgba(0,0,0,0.6)]">{addr.zip} {addr.city}, {addr.country}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {!addr.is_default && (
@@ -137,6 +163,10 @@ export default function AddressesPage() {
                 <input type="text" required value={form.street_nr} onChange={e => setForm(f => ({ ...f, street_nr: e.target.value }))} className="yprint-input" />
               </div>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-[#1d1d1f] mb-1">Adresszusatz (Stiege, Top, Etage, c/o)</label>
+              <input type="text" value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} className="yprint-input" placeholder="z. B. Top 36 Stiege 4" />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] mb-1">PLZ *</label>
@@ -146,6 +176,14 @@ export default function AddressesPage() {
                 <label className="block text-sm font-medium text-[#1d1d1f] mb-1">Stadt *</label>
                 <input type="text" required value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="yprint-input" />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#1d1d1f] mb-1">Land *</label>
+              <select value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} className="yprint-input">
+                {COUNTRY_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={form.is_default} onChange={e => setForm(f => ({ ...f, is_default: e.target.checked }))} />

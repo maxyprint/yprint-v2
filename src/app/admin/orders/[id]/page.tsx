@@ -6,6 +6,17 @@ import { formatDate, formatPrice } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ValidationIssue {
+  type: 'error' | 'warning'
+  field: string
+  message: string
+}
+interface ValidationResult {
+  valid: boolean
+  errors: ValidationIssue[]
+  warnings: ValidationIssue[]
+}
+
 interface PrintPosition {
   position: string
   width: number; height: number; unit: string
@@ -60,11 +71,18 @@ const PAYMENT_COLOR: Record<string, string> = {
 
 // ── Preview modal ─────────────────────────────────────────────────────────────
 
-function PreviewModal({ payload, onClose, onConfirm, sending }: {
-  payload: AkdPayload; onClose: () => void; onConfirm: () => void; sending: boolean
+function PreviewModal({ payload, validation, onClose, onConfirm, onConfirmForce, sending }: {
+  payload: AkdPayload
+  validation: ValidationResult
+  onClose: () => void
+  onConfirm: () => void
+  onConfirmForce: () => void
+  sending: boolean
 }) {
   const r = payload.shipping.recipient
   const s = payload.shipping.sender
+  const hasErrors   = validation.errors.length > 0
+  const hasWarnings = validation.warnings.length > 0
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -83,6 +101,38 @@ function PreviewModal({ payload, onClose, onConfirm, sending }: {
 
         {/* Scrollable body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+          {/* Validation banners */}
+          {hasErrors && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-semibold text-red-800 mb-1.5">✕ Kritische Fehler — Senden gesperrt</p>
+              <ul className="space-y-0.5">
+                {validation.errors.map((e, i) => (
+                  <li key={i} className="text-xs text-red-700">
+                    <span className="font-mono text-red-500">{e.field}:</span> {e.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!hasErrors && hasWarnings && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-800 mb-1.5">⚠ Warnungen — bitte prüfen</p>
+              <ul className="space-y-0.5">
+                {validation.warnings.map((w, i) => (
+                  <li key={i} className="text-xs text-amber-700">
+                    <span className="font-mono text-amber-600">{w.field}:</span> {w.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!hasErrors && !hasWarnings && (
+            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2">
+              <span className="text-green-600 text-base">✓</span>
+              <p className="text-sm font-semibold text-green-800">Produktionsfähig — keine Probleme gefunden</p>
+            </div>
+          )}
 
           {/* Versand */}
           <section>
@@ -166,17 +216,29 @@ function PreviewModal({ payload, onClose, onConfirm, sending }: {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[rgba(0,0,0,0.08)] flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-[rgba(0,0,0,0.08)] flex items-center justify-between gap-3 flex-wrap">
           <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg border border-[rgba(0,0,0,0.12)] hover:bg-[#f5f5f7] transition-colors">
             Abbrechen
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={sending}
-            className="text-sm px-5 py-2 rounded-lg bg-[#1d1d1f] text-white font-semibold hover:bg-black transition-colors disabled:opacity-50"
-          >
-            {sending ? 'Wird gesendet…' : '🖨 Jetzt an AllesKlarDruck senden'}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {!hasErrors && hasWarnings && (
+              <button
+                onClick={onConfirmForce}
+                disabled={sending}
+                className="text-sm px-4 py-2 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-50"
+              >
+                {sending ? 'Wird gesendet…' : 'Trotzdem senden'}
+              </button>
+            )}
+            <button
+              onClick={onConfirm}
+              disabled={sending || hasErrors}
+              title={hasErrors ? 'Fehler beheben bevor gesendet werden kann' : undefined}
+              className="text-sm px-5 py-2 rounded-lg bg-[#1d1d1f] text-white font-semibold hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sending ? 'Wird gesendet…' : '🖨 Jetzt an AllesKlarDruck senden'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -190,6 +252,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [preview, setPreview] = useState<AkdPayload | null>(null)
+  const [previewValidation, setPreviewValidation] = useState<ValidationResult | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [statusUpdating, setStatusUpdating] = useState(false)
@@ -206,21 +269,27 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     try {
       const res  = await fetch(`/api/admin/orders/${id}/print-provider`)
       const data = await res.json()
-      if (data.success) setPreview(data.data)
-      else alert(`Fehler beim Laden der Vorschau: ${data.error}`)
+      if (data.success) {
+        setPreview(data.data.payload)
+        setPreviewValidation(data.data.validation)
+      } else {
+        alert(`Fehler beim Laden der Vorschau: ${data.error}`)
+      }
     } finally {
       setPreviewLoading(false)
     }
   }
 
-  const confirmSend = async () => {
+  const doSend = async (force: boolean) => {
     setSending(true)
     try {
-      const res  = await fetch(`/api/admin/orders/${id}/print-provider`, { method: 'POST' })
+      const url  = `/api/admin/orders/${id}/print-provider${force ? '?force=true' : ''}`
+      const res  = await fetch(url, { method: 'POST' })
       const data = await res.json()
       if (data.success) {
         setOrder(prev => prev ? { ...prev, print_provider_sent_at: new Date().toISOString(), print_provider_response: data.data, status: 'processing' } : prev)
         setPreview(null)
+        setPreviewValidation(null)
         alert('✅ Druckauftrag erfolgreich übermittelt.')
       } else {
         alert(`Fehler: ${data.error}`)
@@ -229,6 +298,9 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       setSending(false)
     }
   }
+
+  const confirmSend      = () => doSend(false)
+  const confirmSendForce = () => doSend(true)
 
   const updateStatus = async (newStatus: string) => {
     setStatusUpdating(true)
@@ -258,11 +330,13 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      {preview && (
+      {preview && previewValidation && (
         <PreviewModal
           payload={preview}
-          onClose={() => setPreview(null)}
+          validation={previewValidation}
+          onClose={() => { setPreview(null); setPreviewValidation(null) }}
           onConfirm={confirmSend}
+          onConfirmForce={confirmSendForce}
           sending={sending}
         />
       )}
