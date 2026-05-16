@@ -180,23 +180,23 @@ export function validateAkdPayload(payload: unknown): ValidationResult {
       const pxW = ppp._px_width as number | undefined
       const pxH = ppp._px_height as number | undefined
       if (pxW && pxW > 0 && typeof width === 'number' && width > 0) {
-        const actualDpi = (pxW / width) * 25.4
+        const actualDpi = Math.round((pxW / width) * 25.4)
         if (actualDpi < 150) {
           err(errors, `${ppPrefix}.printFile`,
-            `PNG-Breite ${pxW}px für ${width}mm ergibt nur ${Math.round(actualDpi)} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(width * PX_PER_MM)}px)`)
+            `PNG-Breite ${pxW}px für ${width}mm ergibt nur ${actualDpi} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(width * PX_PER_MM)}px)`)
         } else if (actualDpi < 300) {
           warn(warnings, `${ppPrefix}.printFile`,
-            `PNG-Breite ${pxW}px für ${width}mm ergibt ${Math.round(actualDpi)} DPI — 300 DPI empfohlen (${Math.round(width * PX_PER_MM)}px)`)
+            `PNG-Breite ${pxW}px für ${width}mm ergibt ${actualDpi} DPI — 300 DPI empfohlen (${Math.round(width * PX_PER_MM)}px)`)
         }
       }
       if (pxH && pxH > 0 && typeof height === 'number' && height > 0) {
-        const actualDpi = (pxH / height) * 25.4
+        const actualDpi = Math.round((pxH / height) * 25.4)
         if (actualDpi < 150) {
           err(errors, `${ppPrefix}.printFile`,
-            `PNG-Höhe ${pxH}px für ${height}mm ergibt nur ${Math.round(actualDpi)} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(height * PX_PER_MM)}px)`)
+            `PNG-Höhe ${pxH}px für ${height}mm ergibt nur ${actualDpi} DPI — min. 150 DPI erforderlich (empfohlen: ${Math.round(height * PX_PER_MM)}px)`)
         } else if (actualDpi < 300) {
           warn(warnings, `${ppPrefix}.printFile`,
-            `PNG-Höhe ${pxH}px für ${height}mm ergibt ${Math.round(actualDpi)} DPI — 300 DPI empfohlen (${Math.round(height * PX_PER_MM)}px)`)
+            `PNG-Höhe ${pxH}px für ${height}mm ergibt ${actualDpi} DPI — 300 DPI empfohlen (${Math.round(height * PX_PER_MM)}px)`)
         }
       }
     })
