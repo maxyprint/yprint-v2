@@ -42,8 +42,17 @@ async function buildAkdPayload(orderId: string) {
     const variations   = template.variations as Record<string, unknown>
     const akdConfig    = (variations._akd as Record<string, string>) || {}
     const measurements = variations._measurements as MeasurementsData | undefined
-    const variation    = variations[item.variation_id as string] as Record<string, unknown> | undefined
-    if (!variation) return { error: `Variation ${item.variation_id} nicht gefunden.`, status: 400 }
+    // System keys start with '_'; skip them when looking for a usable variation
+    const isSystemKey = (k: string) => k.startsWith('_')
+    let variation = (item.variation_id && !isSystemKey(item.variation_id as string))
+      ? variations[item.variation_id as string] as Record<string, unknown> | undefined
+      : undefined
+    // Fallback: use the first non-system variation (handles null variation_id)
+    if (!variation) {
+      const fallbackKey = Object.keys(variations).find(k => !isSystemKey(k))
+      variation = fallbackKey ? variations[fallbackKey] as Record<string, unknown> : undefined
+    }
+    if (!variation) return { error: `Keine verwendbare Variation für item ${item.design_id} gefunden.`, status: 400 }
 
     const physW: number = (template as { physical_width_cm?: number }).physical_width_cm  ?? 30
     const physH: number = (template as { physical_height_cm?: number }).physical_height_cm ?? 40
