@@ -2458,12 +2458,14 @@ class DesignerWidget {
         }
     
         // Korrekte View bestimmen: gespeicherte currentView bevorzugen,
-        // sonst aus variationImages-Keys inferieren (Fallback für ältere Designs)
+        // sonst aus variationImages-Keys inferieren — "front"-Views bevorzugen
         const variationPrefix = this.currentVariation + '_';
+        const viewsWithImages = Object.keys(designData.variationImages || {})
+            .filter(key => key.startsWith(variationPrefix))
+            .map(key => key.slice(variationPrefix.length));
         const targetViewId = designData.currentView
-            || Object.keys(designData.variationImages || {})
-                .find(key => key.startsWith(variationPrefix))
-                ?.slice(variationPrefix.length)
+            || viewsWithImages.find(v => v.includes('front'))
+            || viewsWithImages[0]
             || this.currentView;
 
         this.currentView = targetViewId;
