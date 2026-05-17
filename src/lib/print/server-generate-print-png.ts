@@ -125,6 +125,50 @@ async function compositeImages(
     .toBuffer()
 }
 
+// ─── Transform normalizer ─────────────────────────────────────────────────────
+
+// Converts any stored transform format to the canvas-absolute format that
+// compositeImages() expects: { left, top, scaleX, scaleY, angle, width, height }
+// where left/top are the CENTER point in canvas pixels.
+//
+// safeZone: { left/top = % of canvas (0-100), width/height = absolute canvas px }
+function normalizeTransform(
+    t: Record<string, unknown>,
+    safeZone: { left: number; top: number; width: number; height: number }
+): { left: number; top: number; scaleX: number; scaleY: number; angle: number; width: number; height: number } {
+    if ('zx' in t) {
+        // Current zone-relative format: {zx, zy, sw, angle, nw, nh}
+        const cx  = (safeZone.left / 100) * CANVAS_W + (t.zx as number) * safeZone.width
+        const cy  = (safeZone.top  / 100) * CANVAS_H + (t.zy as number) * safeZone.height
+        const nw  = (t.nw as number) > 0 ? (t.nw as number) : 1
+        const nh  = (t.nh as number) > 0 ? (t.nh as number) : 1
+        const scaleX = ((t.sw as number) * safeZone.width) / nw
+        return { left: cx, top: cy, scaleX, scaleY: scaleX, angle: (t.angle as number) || 0, width: nw, height: nh }
+    }
+    if ('leftPct' in t) {
+        // Legacy: canvas-fraction {leftPct, topPct, scaleX, scaleY}
+        return {
+            left:   (t.leftPct as number) * CANVAS_W,
+            top:    (t.topPct  as number) * CANVAS_H,
+            scaleX: (t.scaleX  as number) || 1,
+            scaleY: (t.scaleY  as number) || 1,
+            angle:  (t.angle   as number) || 0,
+            width:  (t.width   as number) || 100,
+            height: (t.height  as number) || 100,
+        }
+    }
+    // Oldest format: absolute canvas pixels {left, top, scaleX, scaleY, width, height}
+    return {
+        left:   (t.left   as number) || 0,
+        top:    (t.top    as number) || 0,
+        scaleX: (t.scaleX as number) || 1,
+        scaleY: (t.scaleY as number) || 1,
+        angle:  (t.angle  as number) || 0,
+        width:  (t.width  as number) || 100,
+        height: (t.height as number) || 100,
+    }
+}
+
 // ─── New format: variationImages (current designer save format) ───────────────
 
 export async function generateViewPNGFromDesignData(
@@ -154,12 +198,13 @@ export async function generateViewPNGFromDesignData(
 
   const tmpl = tmplRes.data
   const variations = tmpl?.variations as Record<string, {
-    views: Record<string, { printZone: { left: number; top: number; width: number; height: number } }>
+    views: Record<string, {
+      printZone: { left: number; top: number; width: number; height: number }
+      safeZone:  { left: number; top: number; width: number; height: number }
+    }>
   }> | null
 
-  // Require a printZone entry to exist (confirms the view is configured), but don't use
-  // the zone percentage for output dimensions — the canvas always represents the full
-  // physical print area, so we export at physical_width_cm × physical_height_cm at 300 DPI.
+  // Require a printZone entry to exist (confirms the view is configured).
   if (!variations?.[variationId]?.views?.[viewId]?.printZone) return null
 
   // Full physical dimensions → output pixel size at 300 DPI
@@ -168,10 +213,22 @@ export async function generateViewPNGFromDesignData(
   const outW = Math.round((physW / CM_PER_INCH) * PRINT_DPI)
   const outH = Math.round((physH / CM_PER_INCH) * PRINT_DPI)
 
+  // safeZone: left/top = % of canvas, width/height = absolute canvas px.
+  // Used to reconstruct canvas-absolute coordinates from zone-relative transforms.
+  const safeZone = variations?.[variationId]?.views?.[viewId]?.safeZone
+    ?? { left: 50, top: 50, width: CANVAS_W * 0.8, height: CANVAS_H * 0.8 }
+
+  // Normalize all transforms to canvas-absolute format before compositing.
+  // Handles all three stored formats: zone-relative, leftPct, and absolute pixels.
+  const normalizedImages: VariationImage[] = images.map(img => ({
+    ...img,
+    transform: normalizeTransform(img.transform as Record<string, unknown>, safeZone),
+  }))
+
   // Image positions in variationImages are in canvas coords (0..CANVAS_W × 0..CANVAS_H).
   // Map the full canvas to the full physical output so positions scale correctly.
   const fullCanvas = { left: 0, top: 0, width: CANVAS_W, height: CANVAS_H }
-  const outputBuffer = await compositeImages(images, fullCanvas, outW, outH, supabase)
+  const outputBuffer = await compositeImages(normalizedImages, fullCanvas, outW, outH, supabase)
   if (!outputBuffer) return null
 
   await ensurePrintBucket(supabase)

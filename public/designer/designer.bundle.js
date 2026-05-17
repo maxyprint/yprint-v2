@@ -473,6 +473,14 @@ class DesignerWidget {
         const id = designId || new URLSearchParams(window.location.search).get('design_id');
         if (!id) return;
 
+        // Canvas-Dimensionen prüfen — wenn initializeCanvas() zu früh lief (Layout noch 0×0),
+        // jetzt korrigieren. DOM-Layout ist zu diesem Zeitpunkt garantiert abgeschlossen.
+        const domW = this.canvas.offsetWidth;
+        const domH = this.canvas.offsetHeight;
+        if (domW > 50 && domH > 50 && (this.fabricCanvas.getWidth() < 50 || this.fabricCanvas.getHeight() < 50)) {
+            this.fabricCanvas.setDimensions({ width: domW, height: domH });
+        }
+
         try {
             const res = await fetch(`/api/designs/${id}`);
             if (!res.ok) return;
