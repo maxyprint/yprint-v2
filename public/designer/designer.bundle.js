@@ -296,7 +296,9 @@ class DesignerWidget {
         };
     }
 
-    // Pure function: fabric Image → zone-relative transform object. No side effects, no mutations.
+    // Pure function: fabric Image → transform object. No side effects, no mutations.
+    // Saves both zone-relative values (for server-side PNG generation) and absolute canvas
+    // coordinates (for reliable client-side restore — canvas is always 616×626).
     _imgToTransform(img) {
         const { cx, cy, w, h } = this._getZone();
         return {
@@ -306,15 +308,26 @@ class DesignerWidget {
             angle: img.angle || 0,
             nw: img.width,
             nh: img.height,
+            // Absolute canvas coords for reliable client restore (canvas is always 616×626)
+            left: img.left,
+            top: img.top,
+            scaleX: img.scaleX,
+            scaleY: img.scaleY,
         };
     }
 
     // Pure render function: applies transform data onto a fabric Image. No saves, no side effects.
     // Pass a precomputed zone (from _getZone) to render onto a different canvas (e.g. preview).
     _applyTransform(img, t, zone = null) {
+        // When restoring to the main canvas: prefer absolute coords if present.
+        // These bypass the zone-relative conversion entirely and are always reliable.
+        if (!zone && t.left !== undefined && t.zx !== undefined) {
+            img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY || t.scaleX, angle: t.angle || 0 });
+            return;
+        }
         const { cx, cy, w, h, cw, ch } = zone || this._getZone();
         if (t.zx !== undefined) {
-            // Current format: zone-relative
+            // Zone-relative format: used for preview canvas or old saves without absolute coords
             const scaleX = t.nw > 0 ? (t.sw * w) / t.nw : 1;
             img.set({ left: cx + t.zx * w, top: cy + t.zy * h, scaleX, scaleY: scaleX, angle: t.angle || 0 });
         } else if (t.leftPct !== undefined) {
