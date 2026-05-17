@@ -301,19 +301,20 @@ class DesignerWidget {
     // coordinates (for reliable client-side restore — canvas is always 616×626).
     _imgToTransform(img) {
         const { cx, cy, w, h } = this._getZone();
-        return {
+        const result = {
             zx: (img.left - cx) / w,
             zy: (img.top  - cy) / h,
             sw: (img.width * img.scaleX) / w,
             angle: img.angle || 0,
             nw: img.width,
             nh: img.height,
-            // Absolute canvas coords for reliable client restore (canvas is always 616×626)
             left: img.left,
             top: img.top,
             scaleX: img.scaleX,
             scaleY: img.scaleY,
         };
+        console.log('[T2] view='+this.currentView+' cx='+Math.round(cx)+' cy='+Math.round(cy)+' w='+Math.round(w)+' | img.left='+Math.round(img.left)+' img.top='+Math.round(img.top)+' img.scaleX='+img.scaleX.toFixed(4)+' img.width='+img.width+' | sw='+result.sw.toFixed(4));
+        return result;
     }
 
     // Pure render function: applies transform data onto a fabric Image. No saves, no side effects.
@@ -322,6 +323,7 @@ class DesignerWidget {
         // When restoring to the main canvas: prefer absolute coords if present.
         // These bypass the zone-relative conversion entirely and are always reliable.
         if (!zone && t.left !== undefined && t.zx !== undefined) {
+            console.log('[APPLY-ABS] view='+this.currentView+' t.left='+Math.round(t.left)+' t.top='+Math.round(t.top)+' t.scaleX='+t.scaleX.toFixed(4)+' t.scaleY='+(t.scaleY||t.scaleX).toFixed(4));
             img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY || t.scaleX, angle: t.angle || 0 });
             return;
         }
@@ -329,12 +331,11 @@ class DesignerWidget {
         if (t.zx !== undefined) {
             // Zone-relative format: used for preview canvas or old saves without absolute coords
             const scaleX = t.nw > 0 ? (t.sw * w) / t.nw : 1;
+            console.log('[APPLY-ZR] view='+this.currentView+' cx='+Math.round(cx)+' w='+Math.round(w)+' t.zx='+t.zx.toFixed(3)+' t.sw='+t.sw.toFixed(3)+' → left='+Math.round(cx+t.zx*w)+' scaleX='+scaleX.toFixed(4));
             img.set({ left: cx + t.zx * w, top: cy + t.zy * h, scaleX, scaleY: scaleX, angle: t.angle || 0 });
         } else if (t.leftPct !== undefined) {
-            // Legacy format (one-time migration read path): canvas-fraction
             img.set({ left: t.leftPct * cw, top: t.topPct * ch, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
         } else {
-            // Oldest format (one-time migration read path): absolute pixels
             img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
         }
     }
@@ -1292,19 +1293,22 @@ class DesignerWidget {
 
     updateImageTransform(img) {
         if (!this.currentView || !this.currentVariation) return;
-        
+
         const key = `${this.currentVariation}_${this.currentView}`;
         const imagesArray = this.variationImages.get(key);
-        
+
         if (!imagesArray) return;
-        
+
         // Find the image by reference or by ID
-        const imageData = imagesArray.find(data => 
+        const imageData = imagesArray.find(data =>
             data.fabricImage === img || (img.data && img.data.imageId === data.id)
         );
-        
+
         if (imageData) {
+            console.log('[USER-MOVE] key='+key+' img.left='+Math.round(img.left)+' img.top='+Math.round(img.top)+' img.scaleX='+img.scaleX.toFixed(4));
             imageData.transform = this._imgToTransform(img);
+        } else {
+            console.warn('[USER-MOVE] imageData NOT FOUND for key='+key+' — transform NOT updated!');
         }
     }
 
