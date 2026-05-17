@@ -196,6 +196,7 @@ class DesignerWidget {
         // Store view-specific images and their transforms per variation
         this.variationImages = new Map(); // Key format: `${variationId}_${viewId}`
         this._renderGen = 0; // Generation counter — stale loadTemplateView callbacks are ignored
+        this._boundImages = new WeakSet(); // prevents duplicate bindImageEvents calls
 
         // In-memory storage for temporary images (non-logged users)
         this.tempImages = [];
@@ -273,6 +274,49 @@ class DesignerWidget {
         this.pixelToCmLabel.classList.add('physical-dimensions');
     }
 
+    // Returns the print-zone geometry for the current view in canvas pixels.
+    _getZone() {
+        const template = this.templates.get(this.activeTemplateId);
+        const variation = template.variations.get(this.currentVariation.toString());
+        const view = variation.views.get(this.currentView);
+        const sz = view.safeZone;
+        return {
+            cx: (sz.left / 100) * this.fabricCanvas.width,
+            cy: (sz.top  / 100) * this.fabricCanvas.height,
+            w:  sz.width,
+            h:  sz.height,
+        };
+    }
+
+    // Converts a fabric Image's current canvas position to zone-relative transform.
+    _imgToTransform(img) {
+        const { cx, cy, w, h } = this._getZone();
+        return {
+            zx: (img.left - cx) / w,
+            zy: (img.top  - cy) / h,
+            sw: (img.width * img.scaleX) / w,
+            angle: img.angle || 0,
+            nw: img.width,
+            nh: img.height,
+        };
+    }
+
+    // Applies a stored transform back onto a fabric Image using the current canvas/zone.
+    _applyTransform(img, t) {
+        const { cx, cy, w, h } = this._getZone();
+        if (t.zx !== undefined) {
+            // Current format: zone-relative
+            const scaleX = t.nw > 0 ? (t.sw * w) / t.nw : 1;
+            img.set({ left: cx + t.zx * w, top: cy + t.zy * h, scaleX, scaleY: scaleX, angle: t.angle || 0 });
+        } else if (t.leftPct !== undefined) {
+            // Legacy format: canvas-fraction
+            img.set({ left: t.leftPct * this.fabricCanvas.width, top: t.topPct * this.fabricCanvas.height, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
+        } else {
+            // Oldest format: absolute pixels
+            img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
+        }
+    }
+
     handleDimensionChange(dimension, value) {
         const activeObject = this.fabricCanvas.getActiveObject();
         if (!activeObject) return;
@@ -313,16 +357,7 @@ class DesignerWidget {
         activeObject.setCoords();
         this.fabricCanvas.renderAll();
         this.updateToolbarPosition();
-        
-        // Store the image transformation
-        if (this.currentView && this.currentVariation) {
-            const key = `${this.currentVariation}_${this.currentView}`;
-            const imageData = this.variationImages.get(key);
-            if (imageData) {
-                imageData.transform.scaleX = newScaleX;
-                imageData.transform.scaleY = newScaleY;
-            }
-        }
+        this.updateImageTransform(activeObject);
     }
 
     updatePixelToCmConversion() {
@@ -894,15 +929,7 @@ class DesignerWidget {
         const imageData = {
             id: imageId,
             url: imageUrl,
-            transform: {
-                leftPct: fabricImage.left / this.fabricCanvas.width,
-                topPct:  fabricImage.top  / this.fabricCanvas.height,
-                scaleX: fabricImage.scaleX,
-                scaleY: fabricImage.scaleY,
-                angle:  fabricImage.angle,
-                width:  fabricImage.width,
-                height: fabricImage.height
-            },
+            transform: this._imgToTransform(fabricImage),
             fabricImage: fabricImage,
             visible: true
         };
@@ -1053,22 +1080,9 @@ class DesignerWidget {
         const img = imageData.fabricImage;
         img.filters = [];
 
-        const t = imageData.transform;
-        // leftPct/topPct = canvas-relative fractions (new format).
-        // Fall back to absolute left/top for designs saved before this fix.
-        const left = t.leftPct !== undefined ? t.leftPct * this.fabricCanvas.width  : t.left;
-        const top  = t.topPct  !== undefined ? t.topPct  * this.fabricCanvas.height : t.top;
-
         img.set({
             originX: 'center',
             originY: 'center',
-            left,
-            top,
-            scaleX: t.scaleX,
-            scaleY: t.scaleY,
-            angle:  t.angle,
-            width:  t.width,
-            height: t.height,
             cornerSize: 10,
             cornerStyle: 'circle',
             transparentCorners: false,
@@ -1082,6 +1096,8 @@ class DesignerWidget {
                 ? { globalCompositeOperation: 'screen', opacity: 0.95 }
                 : { globalCompositeOperation: 'multiply', opacity: 0.8 })
         });
+
+        this._applyTransform(img, imageData.transform);
 
         if (isDarkShirt) {
             img.filters.push(
@@ -1122,6 +1138,8 @@ class DesignerWidget {
     }
 
     bindImageEvents(img) {
+        if (this._boundImages.has(img)) return;
+        this._boundImages.add(img);
 
         img.on('scaling', (event) => {
             // Maintain aspect ratio
@@ -1207,15 +1225,7 @@ class DesignerWidget {
         );
         
         if (imageData) {
-            imageData.transform = {
-                leftPct: img.left / this.fabricCanvas.width,
-                topPct:  img.top  / this.fabricCanvas.height,
-                scaleX: img.scaleX,
-                scaleY: img.scaleY,
-                angle:  img.angle,
-                width:  img.width,
-                height: img.height
-            };
+            imageData.transform = this._imgToTransform(img);
         }
     }
 
@@ -2075,23 +2085,12 @@ class DesignerWidget {
         for (const [key, imagesArray] of this.variationImages) {
             if (!imagesArray || imagesArray.length === 0) continue;
             
-            state.variationImages[key] = imagesArray.map(imageData => {
-                // Create a clean version without circular references
-                return {
-                    id: imageData.id,
-                    url: imageData.url,
-                    transform: {
-                        left: imageData.transform.left,
-                        top: imageData.transform.top,
-                        scaleX: imageData.transform.scaleX,
-                        scaleY: imageData.transform.scaleY,
-                        angle: imageData.transform.angle,
-                        width: imageData.transform.width || imageData.fabricImage.width,
-                        height: imageData.transform.height || imageData.fabricImage.height
-                    },
-                    visible: imageData.visible !== undefined ? imageData.visible : true
-                };
-            });
+            state.variationImages[key] = imagesArray.map(imageData => ({
+                id: imageData.id,
+                url: imageData.url,
+                transform: imageData.transform,
+                visible: imageData.visible !== undefined ? imageData.visible : true,
+            }));
         }
     
         return state;
@@ -2137,7 +2136,7 @@ class DesignerWidget {
                 fabric.Image.fromURL(imageData.url, (img) => resolve(img));
             });
 
-            // Set image properties
+            // Set base Fabric properties only — position/scale applied later by configureAndLoadFabricImage
             img.set({
                 originX: 'center',
                 originY: 'center',
@@ -2147,10 +2146,9 @@ class DesignerWidget {
                 cornerColor: '#007cba',
                 borderColor: '#007cba',
                 cornerStrokeColor: '#fff',
-                padding: 5, 
+                padding: 5,
                 centeredScaling: true,
                 preserveAspectRatio: true,
-                ...imageData.transform
             });
             
             // Store image ID in fabric object for reference
