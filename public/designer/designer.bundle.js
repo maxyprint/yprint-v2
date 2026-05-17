@@ -457,14 +457,7 @@ class DesignerWidget {
     }
 
     async loadInitialDesign() {
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialDesignId = urlParams.get('design_id');
-
-        if( !initialDesignId ) return false;
-
-        await this.loadDesign(initialDesignId);
-
+        // Edit flow removed
     }
 
     async loadInitialTemplate() {
@@ -2037,41 +2030,6 @@ class DesignerWidget {
         });
     }
 
-    async loadDesign(designId) {
-        // Skip for non-logged users
-        if (!this.isLoggedIn) {
-            this.showLoginModal();
-            return;
-        }
-        
-        try {
-            const formData = new FormData();
-            formData.append('action', 'load_design');
-            formData.append('nonce', octoPrintDesigner.nonce);
-            formData.append('design_id', designId);
-
-            const response = await fetch(octoPrintDesigner.ajaxUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const data = await response.json();
-            
-            if (data.success) {
-                this.toastManager.show('Design loaded', 'success');
-                await this.applyDesignState(data.data);
-            } else {
-                throw new Error(data.data.message || 'Error loading design');
-            }
-        } catch (error) {
-            this.toastManager.show('Error loading the design', 'error');
-            console.error('Error loading design:', error);
-            alert('Failed to load design: ' + error.message);
-        }
-    }
-
     collectDesignState() {
         // Create an object representing the current state of the design
         const state = {
@@ -2094,91 +2052,6 @@ class DesignerWidget {
         }
     
         return state;
-    }
-
-    async applyDesignState(design) {
-        const designData = JSON.parse(design.design_data);
-
-        // Only reload template when it actually changed
-        if (this.activeTemplateId !== designData.templateId) {
-            await this.loadTemplate(designData.templateId);
-        }
-
-        // Restore variation without triggering a view switch
-        if (designData.currentVariation && this.currentVariation !== designData.currentVariation) {
-            this.currentVariation = designData.currentVariation;
-        }
-
-        // Restore all saved images into variationImages map
-        this.variationImages.clear();
-        for (const [key, value] of Object.entries(designData.variationImages || {})) {
-            const underscoreIdx = key.indexOf('_');
-            const variationId = underscoreIdx >= 0 ? key.slice(0, underscoreIdx) : key;
-            const viewId      = underscoreIdx >= 0 ? key.slice(underscoreIdx + 1) : '';
-            if (Array.isArray(value)) {
-                for (const imageData of value) await this.restoreViewImage(variationId, viewId, imageData);
-            } else {
-                await this.restoreViewImage(variationId, viewId, value);
-            }
-        }
-
-        // Paint images onto the currently visible view — no view switch
-        this.loadViewImage();
-
-        this.currentDesignId = design.id;
-        this.modalNameInput.value = design.name;
-        this.modalDesignId.value = design.id;
-    }
-
-    async restoreViewImage(variationId, viewId, imageData) {
-        try {
-            const img = await new Promise((resolve) => {
-                fabric.Image.fromURL(imageData.url, (img) => resolve(img));
-            });
-
-            // Set base Fabric properties only — position/scale applied later by configureAndLoadFabricImage
-            img.set({
-                originX: 'center',
-                originY: 'center',
-                cornerSize: 10,
-                cornerStyle: 'circle',
-                transparentCorners: false,
-                cornerColor: '#007cba',
-                borderColor: '#007cba',
-                cornerStrokeColor: '#fff',
-                padding: 5,
-                centeredScaling: true,
-                preserveAspectRatio: true,
-            });
-            
-            // Store image ID in fabric object for reference
-            img.data = {
-                imageId: imageData.id || `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-            };
-            
-            // Get or create key in variationImages map
-            const key = `${variationId}_${viewId}`;
-            if (!this.variationImages.has(key)) {
-                this.variationImages.set(key, []);
-            }
-            
-            // Add image to the array
-            this.variationImages.get(key).push({
-                id: img.data.imageId,
-                url: imageData.url,
-                transform: imageData.transform,
-                fabricImage: img,
-                visible: imageData.visible !== undefined ? imageData.visible : true
-            });
-            
-            // Bind events to the image
-            this.bindImageEvents(img);
-            
-            return img;
-        } catch (error) {
-            console.error('Error restoring image:', error);
-            return null;
-        }
     }
 
     async captureCanvasPreview() {
