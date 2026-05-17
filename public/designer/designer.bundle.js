@@ -716,315 +716,11 @@ class DesignerWidget {
         // Use printZone data if available, fallback to safeZone
         const zoneData = (view.printZone && view.printZone.left !== undefined) ? view.printZone : view.safeZone;
 
-        console.log('🔍 Print Zone Data:', {
-            printZone: view.printZone,
-            safeZone: view.safeZone,
-            using: zoneData
-        });
-
-        // 🔍 DEBUG: Detailed Print Zone Analysis
-        console.log('🔍 CANVAS DIMENSIONS:', {
-            canvasWidth: this.fabricCanvas.width,
-            canvasHeight: this.fabricCanvas.height
-        });
-
-        console.log('🔍 RAW ZONE DATA:', {
-            safeZone: view.safeZone,
-            printZone: view.printZone || 'nicht vorhanden'
-        });
-
-        console.log('🔍 VERWENDETE ZONE DATA:', zoneData);
-
-        console.log('🔍 BERECHNUNGEN (AKTUELL - MIT /100):', {
-            left_calculated: zoneData.left * this.fabricCanvas.width / 100,
-            top_calculated: zoneData.top * this.fabricCanvas.height / 100,
-            width_calculated: zoneData.width * this.fabricCanvas.width / 100,
-            height_calculated: zoneData.height * this.fabricCanvas.height / 100
-        });
-
-        console.log('🔍 BERECHNUNGEN (TEST - OHNE /100):', {
-            left_direct: zoneData.left,
-            top_direct: zoneData.top,
-            width_direct: zoneData.width,
-            height_direct: zoneData.height
-        });
-
-        // 🔍 IMAGE vs CANVAS POSITIONING ANALYSIS
-        console.log('=== 🖼️ IMAGE vs CANVAS POSITIONING ===');
-        const objects = this.fabricCanvas.getObjects();
-        const backgroundImage = objects.find(obj => obj.type === 'image');
-
-        if (backgroundImage) {
-            console.log('🖼️ Background Image:', {
-                left: backgroundImage.left,
-                top: backgroundImage.top,
-                width: backgroundImage.width,
-                height: backgroundImage.height,
-                scaleX: backgroundImage.scaleX,
-                scaleY: backgroundImage.scaleY,
-                actualWidth: backgroundImage.width * backgroundImage.scaleX,
-                actualHeight: backgroundImage.height * backgroundImage.scaleY
-            });
-
-            const imageBounds = {
-                left: backgroundImage.left - (backgroundImage.width * backgroundImage.scaleX) / 2,
-                top: backgroundImage.top - (backgroundImage.height * backgroundImage.scaleY) / 2,
-                right: backgroundImage.left + (backgroundImage.width * backgroundImage.scaleX) / 2,
-                bottom: backgroundImage.top + (backgroundImage.height * backgroundImage.scaleY) / 2
-            };
-
-            console.log('📦 Image bounds:', imageBounds);
-            console.log('🎯 Zone relative to image would be:', {
-                left: imageBounds.left + zoneData.left,
-                top: imageBounds.top + zoneData.top,
-                width: zoneData.width,
-                height: zoneData.height
-            });
-        } else {
-            console.log('❌ No background image found');
-            console.log('📋 All objects:', objects.map(obj => ({type: obj.type, left: obj.left, top: obj.top})));
-        }
-
-        // 🔍 PRINT ZONE DEBUG - Canvas & Template Data
-        console.log('🔍 PRINT ZONE DEBUG START:');
-        console.log('📐 Canvas dimensions:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
-        console.log('📊 SafeZone data:', view.safeZone);
-        console.log('🏗️ Current template ID:', this.activeTemplateId);
-        console.log('🔢 Current variation:', this.currentVariation);
-        console.log('👀 Current view:', this.currentView);
-        console.log('🎨 Fabric version:', fabric.version);
-        console.log('📏 Canvas zoom:', this.fabricCanvas.getZoom());
-
-        // 🎯 SINGLE SOURCE OF TRUTH - HYBRID PRINT ZONE LOGIC
-        console.log('=== 🎯 SSOT HYBRID PRINT ZONE CALCULATION ===');
-
-        // DEFINITIVE FORMAT: Position = Percent, Size = Pixels (based on SQL data analysis)
-        console.log('📋 DATA FORMAT DEFINITION:');
-        console.log('  - Position (left/top): PERCENT (0-100) of canvas dimensions');
-        console.log('  - Size (width/height): PIXELS (absolute values)');
-
-        console.log('📊 RAW DATA FROM DATABASE:');
-        console.log('  - left:', view.safeZone.left, '(interpreted as %)');
-        console.log('  - top:', view.safeZone.top, '(interpreted as %)');
-        console.log('  - width:', view.safeZone.width, '(interpreted as px)');
-        console.log('  - height:', view.safeZone.height, '(interpreted as px)');
-
-        console.log('📐 CANVAS CONTEXT:');
-        console.log('  - Canvas width:', this.fabricCanvas.width, 'px');
-        console.log('  - Canvas height:', this.fabricCanvas.height, 'px');
-
-        // HYBRID CALCULATION - SSOT Implementation (CENTER-BASED POSITIONING)
-        // SQL Analysis: 49.625% left, 45.4% top = CENTER POSITION, not top-left corner
-        const calculatedLeft = ((view.safeZone.left / 100) * this.fabricCanvas.width) - (view.safeZone.width / 2);
-        const calculatedTop = ((view.safeZone.top / 100) * this.fabricCanvas.height) - (view.safeZone.height / 2);
-        const calculatedWidth = view.safeZone.width; // Direct pixel value
-        const calculatedHeight = view.safeZone.height; // Direct pixel value
-
-        console.log('🧮 HYBRID CALCULATION RESULTS:');
-        console.log('  - left:', view.safeZone.left + '% → ' + calculatedLeft + 'px');
-        console.log('  - top:', view.safeZone.top + '% → ' + calculatedTop + 'px');
-        console.log('  - width:', calculatedWidth + 'px (direct)');
-        console.log('  - height:', calculatedHeight + 'px (direct)');
-
-        // BOUNDS VALIDATION
-        const bounds = {
-            left: calculatedLeft >= 0 && calculatedLeft <= this.fabricCanvas.width,
-            top: calculatedTop >= 0 && calculatedTop <= this.fabricCanvas.height,
-            right: (calculatedLeft + calculatedWidth) <= this.fabricCanvas.width,
-            bottom: (calculatedTop + calculatedHeight) <= this.fabricCanvas.height
-        };
-        const boundsValid = Object.values(bounds).every(v => v);
-
-        console.log('✅ BOUNDS VALIDATION:', {
-            valid: boundsValid,
-            details: bounds,
-            finalBox: {
-                left: calculatedLeft,
-                top: calculatedTop,
-                right: calculatedLeft + calculatedWidth,
-                bottom: calculatedTop + calculatedHeight
-            }
-        });
-
-        console.log('🎯 VISUAL POSITION EXPECTATIONS:');
-        console.log('  - Current position creates box from:', calculatedLeft,
-        'to', (calculatedLeft + calculatedWidth));
-        console.log('  - Current position creates box from:', calculatedTop, 'to',
-         (calculatedTop + calculatedHeight));
-        console.log('  - Expected center position (for ~50% left):',
-        this.fabricCanvas.width * 0.5);
-        console.log('  - Expected center position (for ~45% top):',
-        this.fabricCanvas.height * 0.45);
-        console.log('  - Distance from expected center:', {
-            leftOffset: calculatedLeft - (this.fabricCanvas.width * 0.5),
-            topOffset: calculatedTop - (this.fabricCanvas.height * 0.45)
-        });
-
-        // Test alternative positioning approaches
-        console.log('🧪 ALTERNATIVE POSITIONING TESTS:');
-        console.log('  - A) Centered approach:', {
-            left: (this.fabricCanvas.width - calculatedWidth) * (49.625/100),
-            top: (this.fabricCanvas.height - calculatedHeight) * (45.4/100)
-        });
-        console.log('  - B) Container relative:', {
-            left: this.fabricCanvas.width * (49.625/100) - (calculatedWidth/2),
-            top: this.fabricCanvas.height * (45.4/100) - (calculatedHeight/2)
-        });
-
-        if (!boundsValid) {
-            console.warn('⚠️ WARNING: Print zone extends outside canvas boundaries!');
-        }
-
-        console.log('🔍 FABRIC CANVAS COORDINATE SYSTEM ANALYSIS:');
-        console.log('  - Canvas element position:',
-        this.fabricCanvas.getElement().getBoundingClientRect());
-        console.log('  - Canvas offset parent:',
-        this.fabricCanvas.getElement().offsetParent);
-        console.log('  - Canvas transform matrix:',
-        this.fabricCanvas.viewportTransform);
-        console.log('  - Canvas center point:', this.fabricCanvas.getCenter());
-        console.log('  - Canvas absolute dimensions:', {
-            width: this.fabricCanvas.width,
-            height: this.fabricCanvas.height,
-            getWidth: this.fabricCanvas.getWidth(),
-            getHeight: this.fabricCanvas.getHeight()
-        });
-
-        const backgroundObjects = this.fabricCanvas.getObjects().filter(obj =>
-        obj.type === 'image');
-        console.log('🖼️ BACKGROUND IMAGE ANALYSIS:');
-        console.log('  - Found background images:', backgroundObjects.length);
-        if (backgroundObjects.length > 0) {
-            const bgImg = backgroundObjects[0];
-            console.log('  - Image position:', {left: bgImg.left, top:
-        bgImg.top});
-            console.log('  - Image dimensions:', {width: bgImg.width, height:
-        bgImg.height});
-            console.log('  - Image scale:', {scaleX: bgImg.scaleX, scaleY:
-        bgImg.scaleY});
-            console.log('  - Image bounds:', bgImg.getBoundingRect());
-            console.log('  - Should print zone be relative to image?', {
-                imageLeft: bgImg.left,
-                imageTop: bgImg.top,
-                zoneShouldBe: {
-                    left: bgImg.left + (49.625/100 * bgImg.width * bgImg.scaleX),
-                    top: bgImg.top + (45.4/100 * bgImg.height * bgImg.scaleY)
-                }
-            });
-        }
-
-        // 🔍 ENHANCED CANVAS STATE ANALYSIS
-        console.log('=== 🔍 ENHANCED CANVAS STATE ANALYSIS ===');
-
-        // 1. Complete Canvas Object Analysis
-        const allCanvasObjects = this.fabricCanvas.getObjects();
-        console.log('📋 COMPLETE CANVAS INVENTORY:');
-        console.log(`  - Total objects: ${allCanvasObjects.length}`);
-
-        allCanvasObjects.forEach((obj, index) => {
-            const boundingRect = obj.getBoundingRect();
-            console.log(`  📦 Object ${index + 1}: ${obj.type} at (${obj.left}, ${obj.top})`, {
-                width: obj.width,
-                height: obj.height,
-                scaleX: obj.scaleX,
-                scaleY: obj.scaleY,
-                visible: obj.visible,
-                selectable: obj.selectable,
-                evented: obj.evented,
-                boundingRect: boundingRect,
-                isFabricImage: obj.type === 'image',
-                hasSourceProperty: !!(obj.src || obj._element),
-                data: obj.data || 'none'
-            });
-        });
-
-        // 2. Canvas Background Analysis
-        console.log('🖼️ DETAILED CANVAS BACKGROUND ANALYSIS:');
-        console.log('  - backgroundImage exists:', !!this.fabricCanvas.backgroundImage);
-        console.log('  - backgroundColor:', this.fabricCanvas.backgroundColor);
-        console.log('  - overlayImage exists:', !!this.fabricCanvas.overlayImage);
-
-        if (this.fabricCanvas.backgroundImage) {
-            const bgImg = this.fabricCanvas.backgroundImage;
-            console.log('  🖼️ Canvas Background Image Details:', {
-                src: (bgImg.src || '').substring(0, 100) + '...',
-                left: bgImg.left,
-                top: bgImg.top,
-                width: bgImg.width,
-                height: bgImg.height,
-                scaleX: bgImg.scaleX,
-                scaleY: bgImg.scaleY,
-                originX: bgImg.originX,
-                originY: bgImg.originY,
-                visible: bgImg.visible,
-                bounds: bgImg.getBoundingRect()
-            });
-        }
-
-        // 3. Template View Background Analysis
-        console.log('🖼️ TEMPLATE VIEW BACKGROUND ANALYSIS:');
-        console.log('  - Template ID:', this.activeTemplateId);
-        console.log('  - Current variation:', this.currentVariation);
-        console.log('  - Current view:', this.currentView);
-        console.log('  - View imageZone:', view.imageZone);
-
-        // 4. Actual Rendered Print Zone Analysis
-        console.log('🎯 RENDERED PRINT ZONE VERIFICATION:');
-        const printZoneObjects = allCanvasObjects.filter(obj =>
-            obj.stroke === '#007cba' ||
-            (obj.fill && obj.fill.includes('rgba')) ||
-            obj.isPrintZone === true
-        );
-
-        console.log(`  - Found print zone objects: ${printZoneObjects.length}`);
-        printZoneObjects.forEach((zone, index) => {
-            console.log(`  🎯 Print Zone ${index + 1}:`, {
-                left: zone.left,
-                top: zone.top,
-                width: zone.width,
-                height: zone.height,
-                actualBounds: zone.getBoundingRect(),
-                stroke: zone.stroke,
-                fill: zone.fill
-            });
-        });
-
-        // 5. Position Verification vs Expected
-        console.log('🔍 POSITION VERIFICATION ANALYSIS:');
-        console.log('  📊 Expected position (SSOT calculation):');
-        console.log(`    Left: ${calculatedLeft}px (${view.safeZone.left}% of ${this.fabricCanvas.width}px)`);
-        console.log(`    Top: ${calculatedTop}px (${view.safeZone.top}% of ${this.fabricCanvas.height}px)`);
-        console.log(`    Width: ${calculatedWidth}px (direct pixel value)`);
-        console.log(`    Height: ${calculatedHeight}px (direct pixel value)`);
-
-        if (printZoneObjects.length > 0) {
-            const actualZone = printZoneObjects[0];
-            const leftDiff = actualZone.left - calculatedLeft;
-            const topDiff = actualZone.top - calculatedTop;
-            console.log('  📏 Position difference (actual vs expected):');
-            console.log(`    Left diff: ${leftDiff}px`);
-            console.log(`    Top diff: ${topDiff}px`);
-            console.log(`    ${leftDiff === 0 && topDiff === 0 ? '✅ Position matches' : '❌ Position mismatch'}`);
-        }
-
-        // 6. Canvas Context Analysis
-        console.log('🖼️ CANVAS CONTEXT VERIFICATION:');
-        const canvasElement = this.fabricCanvas.getElement();
-        const canvasRect = canvasElement.getBoundingClientRect();
-        console.log('  - Canvas DOM position:', {
-            left: canvasRect.left,
-            top: canvasRect.top,
-            width: canvasRect.width,
-            height: canvasRect.height
-        });
-        console.log('  - Fabric canvas dimensions:', {
-            width: this.fabricCanvas.width,
-            height: this.fabricCanvas.height
-        });
-        console.log('  - Canvas viewport transform:', this.fabricCanvas.viewportTransform);
-
-        console.log('=== END ENHANCED CANVAS STATE ANALYSIS ===');
-        console.log('=== 🎯 SSOT CALCULATION COMPLETE ===');
+        // Position = percent (0–100), size = pixels
+        const calculatedLeft   = ((view.safeZone.left / 100) * this.fabricCanvas.width)  - (view.safeZone.width  / 2);
+        const calculatedTop    = ((view.safeZone.top  / 100) * this.fabricCanvas.height) - (view.safeZone.height / 2);
+        const calculatedWidth  = view.safeZone.width;
+        const calculatedHeight = view.safeZone.height;
 
         this.printingZoneElement = new Rect({
             left: calculatedLeft,
@@ -1043,17 +739,6 @@ class DesignerWidget {
 
         // Add stable identifier for PNG generation
         this.printingZoneElement.data = { role: 'printZone' };
-
-        // Debug the created element
-        console.log('✅ Print zone element created:');
-        console.log('  - Final position:', this.printingZoneElement.left, ',', this.printingZoneElement.top);
-        console.log('  - Final size:', this.printingZoneElement.width, 'x', this.printingZoneElement.height);
-        console.log('  - Style properties:', {
-            fill: this.printingZoneElement.fill,
-            stroke: this.printingZoneElement.stroke,
-            strokeWidth: this.printingZoneElement.strokeWidth
-        });
-        console.log('🔍 PRINT ZONE DEBUG END');
 
         if (view.colorOverlayEnabled) {
 
@@ -1210,21 +895,19 @@ class DesignerWidget {
             id: imageId,
             url: imageUrl,
             transform: {
-                left: fabricImage.left,
-                top: fabricImage.top,
+                leftPct: fabricImage.left / this.fabricCanvas.width,
+                topPct:  fabricImage.top  / this.fabricCanvas.height,
                 scaleX: fabricImage.scaleX,
                 scaleY: fabricImage.scaleY,
-                angle: fabricImage.angle,
-                width: fabricImage.width,
+                angle:  fabricImage.angle,
+                width:  fabricImage.width,
                 height: fabricImage.height
             },
             fabricImage: fabricImage,
             visible: true
         };
-    
-        const key = `${this.currentVariation}_${this.currentView}`;
 
-        console.log('[storeViewImage] key:', key, '| fabricImage.originX:', fabricImage.originX, '| transform:', JSON.stringify(imageData.transform), '| canvas:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
+        const key = `${this.currentVariation}_${this.currentView}`;
 
         // Initialize array if needed
         if (!this.variationImages.has(key)) {
@@ -1334,8 +1017,6 @@ class DesignerWidget {
         const key = `${this.currentVariation}_${this.currentView}`;
         const imagesArray = this.variationImages.get(key);
 
-        console.log('[loadViewImage] key:', key, '| found images:', imagesArray ? imagesArray.length : 'NONE');
-
         if (!imagesArray || imagesArray.length === 0) return;
 
         // Get template and variation data for filter settings
@@ -1344,9 +1025,8 @@ class DesignerWidget {
         const isDarkShirt = variation.is_dark_shirt === true;
 
         // Load each image
-        imagesArray.forEach((imageData, idx) => {
+        imagesArray.forEach((imageData) => {
             const alreadyOnCanvas = imageData.fabricImage && this.fabricCanvas.contains(imageData.fabricImage);
-            console.log(`[loadViewImage] img[${idx}] alreadyOnCanvas=${alreadyOnCanvas} hasFabricImg=${!!imageData.fabricImage} transform=`, JSON.stringify(imageData.transform));
 
             // Skip if we already have this image on canvas (avoids duplicates)
             if (alreadyOnCanvas) {
@@ -1373,14 +1053,22 @@ class DesignerWidget {
         const img = imageData.fabricImage;
         img.filters = [];
 
-        console.log('[configureAndLoadFabricImage] BEFORE set — img.originX:', img.originX, 'img.left:', img.left, 'img.top:', img.top, 'img.scaleX:', img.scaleX);
+        const t = imageData.transform;
+        // leftPct/topPct = canvas-relative fractions (new format).
+        // Fall back to absolute left/top for designs saved before this fix.
+        const left = t.leftPct !== undefined ? t.leftPct * this.fabricCanvas.width  : t.left;
+        const top  = t.topPct  !== undefined ? t.topPct  * this.fabricCanvas.height : t.top;
 
-        // Transform first, filters second — applyFilters() in Fabric v5 changes _element
-        // and _filterScaling*, which can conflict with width/height set afterwards.
         img.set({
             originX: 'center',
             originY: 'center',
-            ...imageData.transform,
+            left,
+            top,
+            scaleX: t.scaleX,
+            scaleY: t.scaleY,
+            angle:  t.angle,
+            width:  t.width,
+            height: t.height,
             cornerSize: 10,
             cornerStyle: 'circle',
             transparentCorners: false,
@@ -1409,9 +1097,6 @@ class DesignerWidget {
         }
 
         img.applyFilters();
-
-        console.log('[configureAndLoadFabricImage] AFTER set+filters — img.originX:', img.originX, 'img.left:', img.left, 'img.top:', img.top, 'img.scaleX:', img.scaleX, 'img.width:', img.width, 'canvasW:', this.fabricCanvas.width, 'canvasH:', this.fabricCanvas.height);
-
         this.bindImageEvents(img);
         this.fabricCanvas.add(img);
         img.setCoords();
@@ -1522,14 +1207,13 @@ class DesignerWidget {
         );
         
         if (imageData) {
-            console.trace('[updateImageTransform] key:', key, 'scaleX:', img.scaleX, 'left:', img.left, 'top:', img.top);
             imageData.transform = {
-                left: img.left,
-                top: img.top,
+                leftPct: img.left / this.fabricCanvas.width,
+                topPct:  img.top  / this.fabricCanvas.height,
                 scaleX: img.scaleX,
                 scaleY: img.scaleY,
-                angle: img.angle,
-                width: img.width,
+                angle:  img.angle,
+                width:  img.width,
                 height: img.height
             };
         }
