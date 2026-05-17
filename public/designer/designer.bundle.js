@@ -256,8 +256,7 @@ class DesignerWidget {
                             ? imagesArray.find(d => d.id === activeId)
                             : imagesArray[imagesArray.length - 1];
                         if (imageData) {
-                            imageData.transform.left = activeObject.left;
-                            imageData.transform.top = activeObject.top;
+                            imageData.transform = this._imgToTransform(activeObject);
                         }
                     }
                 }
@@ -274,21 +273,30 @@ class DesignerWidget {
         this.pixelToCmLabel.classList.add('physical-dimensions');
     }
 
-    // Returns the print-zone geometry for the current view in canvas pixels.
-    _getZone() {
-        const template = this.templates.get(this.activeTemplateId);
-        const variation = template.variations.get(this.currentVariation.toString());
-        const view = variation.views.get(this.currentView);
+    // Returns the print-zone geometry in canvas pixels.
+    // Pass (canvas, view) to compute for a different canvas (e.g. preview temp canvas).
+    // safeZone.width/height are in main-canvas pixels, so they are scaled by the canvas ratio.
+    // cw/ch are stored so legacy leftPct/topPct formats can resolve correctly in _applyTransform.
+    _getZone(canvas = null, view = null) {
+        const c = canvas || this.fabricCanvas;
+        if (!view) {
+            const template = this.templates.get(this.activeTemplateId);
+            const variation = template.variations.get(this.currentVariation.toString());
+            view = variation.views.get(this.currentView);
+        }
         const sz = view.safeZone;
+        const ratio = canvas ? (canvas.width / this.fabricCanvas.width) : 1;
         return {
-            cx: (sz.left / 100) * this.fabricCanvas.width,
-            cy: (sz.top  / 100) * this.fabricCanvas.height,
-            w:  sz.width,
-            h:  sz.height,
+            cx: (sz.left / 100) * c.width,
+            cy: (sz.top  / 100) * c.height,
+            w:  sz.width  * ratio,
+            h:  sz.height * ratio,
+            cw: c.width,   // canvas width — used by legacy leftPct branch
+            ch: c.height,
         };
     }
 
-    // Converts a fabric Image's current canvas position to zone-relative transform.
+    // Pure function: fabric Image → zone-relative transform object. No side effects, no mutations.
     _imgToTransform(img) {
         const { cx, cy, w, h } = this._getZone();
         return {
@@ -301,18 +309,19 @@ class DesignerWidget {
         };
     }
 
-    // Applies a stored transform back onto a fabric Image using the current canvas/zone.
-    _applyTransform(img, t) {
-        const { cx, cy, w, h } = this._getZone();
+    // Pure render function: applies transform data onto a fabric Image. No saves, no side effects.
+    // Pass a precomputed zone (from _getZone) to render onto a different canvas (e.g. preview).
+    _applyTransform(img, t, zone = null) {
+        const { cx, cy, w, h, cw, ch } = zone || this._getZone();
         if (t.zx !== undefined) {
             // Current format: zone-relative
             const scaleX = t.nw > 0 ? (t.sw * w) / t.nw : 1;
             img.set({ left: cx + t.zx * w, top: cy + t.zy * h, scaleX, scaleY: scaleX, angle: t.angle || 0 });
         } else if (t.leftPct !== undefined) {
-            // Legacy format: canvas-fraction
-            img.set({ left: t.leftPct * this.fabricCanvas.width, top: t.topPct * this.fabricCanvas.height, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
+            // Legacy format (one-time migration read path): canvas-fraction
+            img.set({ left: t.leftPct * cw, top: t.topPct * ch, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
         } else {
-            // Oldest format: absolute pixels
+            // Oldest format (one-time migration read path): absolute pixels
             img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
         }
     }
@@ -457,7 +466,38 @@ class DesignerWidget {
     }
 
     async loadInitialDesign() {
-        // Edit flow removed
+        const params = new URLSearchParams(window.location.search);
+        const designId = params.get('design_id');
+        if (!designId) return;
+
+        try {
+            const res = await fetch(`/api/designs/${designId}`);
+            if (!res.ok) return;
+            const { data } = await res.json();
+            if (data?.design_data) this.applyDesignState(data.design_data);
+        } catch (e) {
+            console.error('loadInitialDesign failed:', e);
+        }
+    }
+
+    applyDesignState(state) {
+        if (!state?.variationImages) return;
+        for (const [key, images] of Object.entries(state.variationImages)) {
+            const entries = images.map(img => {
+                const t = img.transform;
+                if (t && ('left' in t || 'top' in t) && ('zx' in t || 'zy' in t)) {
+                    console.error('INVALID MIXED TRANSFORM STATE detected after load:', key, t);
+                }
+                return {
+                    id: img.id,
+                    url: img.url,
+                    transform: img.transform,  // any format — normalized in configureAndLoadFabricImage
+                    visible: img.visible !== false,
+                    fabricImage: null,          // lazy: loadViewImage() loads on first view switch
+                };
+            });
+            this.variationImages.set(key, entries);
+        }
     }
 
     async loadInitialTemplate() {
@@ -1091,6 +1131,9 @@ class DesignerWidget {
         });
 
         this._applyTransform(img, imageData.transform);
+        // Normalize to zone-relative immediately — legacy formats are a one-time migration read path.
+        // After this line imageData.transform is guaranteed to be {zx,zy,sw,angle,nw,nh}.
+        imageData.transform = this._imgToTransform(img);
 
         if (isDarkShirt) {
             img.filters.push(
@@ -2042,13 +2085,19 @@ class DesignerWidget {
         // Convert the variationImages Map to a plain object with arrays
         for (const [key, imagesArray] of this.variationImages) {
             if (!imagesArray || imagesArray.length === 0) continue;
-            
-            state.variationImages[key] = imagesArray.map(imageData => ({
-                id: imageData.id,
-                url: imageData.url,
-                transform: imageData.transform,
-                visible: imageData.visible !== undefined ? imageData.visible : true,
-            }));
+
+            state.variationImages[key] = imagesArray.map(imageData => {
+                const t = imageData.transform;
+                if (t && ('left' in t || 'top' in t) && ('zx' in t || 'zy' in t)) {
+                    console.error('INVALID MIXED TRANSFORM STATE detected before save:', key, t);
+                }
+                return {
+                    id: imageData.id,
+                    url: imageData.url,
+                    transform: imageData.transform,
+                    visible: imageData.visible !== undefined ? imageData.visible : true,
+                };
+            });
         }
     
         return state;
@@ -2099,16 +2148,16 @@ class DesignerWidget {
             const key = `${this.currentVariation}_${this.currentView}`;
             const imagesArray = this.variationImages.get(key) || [];
             
-            // Calculate position adjustment factors
-            const widthRatio = tempCanvas.width / this.fabricCanvas.width;
-            const heightRatio = tempCanvas.height / this.fabricCanvas.height;
-    
-            // Create clipPath with adjusted dimensions
+            // Zone geometry for temp canvas — uses the same pipeline as the main canvas.
+            // _getZone scales safeZone pixel values by the canvas ratio automatically.
+            const tempZone = this._getZone(tempCanvas, view);
+
+            // Create clipPath with adjusted dimensions (derived from tempZone for consistency)
             const clipPath = new fabric.Rect({
-                left: view.safeZone.left * tempCanvas.width / 100,
-                top: view.safeZone.top * tempCanvas.height / 100,
-                width: view.safeZone.width * widthRatio,
-                height: view.safeZone.height * heightRatio,
+                left: tempZone.cx,
+                top: tempZone.cy,
+                width: tempZone.w,
+                height: tempZone.h,
                 absolutePositioned: true,
                 fill: 'transparent',
                 selectable: false,
@@ -2116,26 +2165,19 @@ class DesignerWidget {
                 originX: 'center',
                 originY: 'center'
             });
-    
+
             // Add each image to the preview canvas
             for (const imageData of imagesArray) {
                 if (!imageData.visible || !imageData.url) continue;
-                
+
                 // Load the image
                 const userImage = await Image.fromURL(imageData.url);
                 if (!userImage) continue;
 
-                // Set position and transformation
-                userImage.set({
-                    left: imageData.transform.left * widthRatio,
-                    top: imageData.transform.top * heightRatio,
-                    scaleX: imageData.transform.scaleX,
-                    scaleY: imageData.transform.scaleY,
-                    angle: imageData.transform.angle || 0,
-                    originX: 'center',
-                    originY: 'center',
-                    clipPath: clipPath
-                });
+                // Apply transform via the canonical pipeline — same function as main canvas render.
+                // Any legacy format is handled by _applyTransform's migration read path.
+                this._applyTransform(userImage, imageData.transform, tempZone);
+                userImage.set({ originX: 'center', originY: 'center', clipPath: clipPath });
                 
                 // Apply dark/light shirt filters if needed
                 const isDarkShirt = variation.is_dark_shirt === true;
@@ -2186,11 +2228,9 @@ class DesignerWidget {
     async captureAllViewsPreviews() {
         // Get the current template and variation
         const template = this.templates.get(this.activeTemplateId);
-        console.log(template);
         if (!template) return {};
-        
+
         const variation = template.variations.get(this.currentVariation.toString());
-        console.log(variation); 
         if (!variation) return {};
         
         // Store the current view so we can restore it later
