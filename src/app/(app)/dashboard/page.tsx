@@ -493,6 +493,34 @@ export default function DashboardPage() {
                     <span>Bestellen</span>
                   </button>
 
+                  {/* Edit button */}
+                  <Link
+                    href={`/designer?design_id=${design.id}`}
+                    title="Bearbeiten"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      padding: '6px 8px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: '#374151',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s ease',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                    </svg>
+                    <span>Bearbeiten</span>
+                  </Link>
+
                   {/* Delete button */}
                   <button
                     onClick={() => deleteDesign(design.id, design.name)}
