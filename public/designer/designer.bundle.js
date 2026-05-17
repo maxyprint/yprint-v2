@@ -458,23 +458,44 @@ class DesignerWidget {
 
         this.updateZoom(100);
 
+        // Capture design_id NOW — loadInitialTemplate strips all URL params via replaceState.
+        const designId = new URLSearchParams(window.location.search).get('design_id');
+
         await this.loadInitialTemplate();
-        
-        if (!this.activeTemplateId) {
-            await this.loadInitialDesign();
+
+        // Always run edit flow when design_id was present, regardless of activeTemplateId.
+        if (designId) {
+            await this.loadInitialDesign(designId);
         }
     }
 
-    async loadInitialDesign() {
-        const params = new URLSearchParams(window.location.search);
-        const designId = params.get('design_id');
-        if (!designId) return;
+    async loadInitialDesign(designId = null) {
+        const id = designId || new URLSearchParams(window.location.search).get('design_id');
+        if (!id) return;
 
         try {
-            const res = await fetch(`/api/designs/${designId}`);
+            const res = await fetch(`/api/designs/${id}`);
             if (!res.ok) return;
             const { data } = await res.json();
-            if (data?.design_data) this.applyDesignState(data.design_data);
+            if (!data?.design_data) return;
+
+            const state = data.design_data;
+
+            // Load the template the design was saved with, if different from current.
+            if (state.templateId && state.templateId !== this.activeTemplateId) {
+                await this.loadTemplate(state.templateId);
+            }
+
+            // Populate variationImages BEFORE rendering so loadViewImage picks them up.
+            this.applyDesignState(state);
+
+            // Restore saved variation, then render the saved view.
+            if (state.currentVariation) {
+                this.currentVariation = state.currentVariation;
+            }
+            if (state.currentView) {
+                await this.loadTemplateView(state.currentView);
+            }
         } catch (e) {
             console.error('loadInitialDesign failed:', e);
         }
