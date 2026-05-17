@@ -1708,10 +1708,15 @@ class DesignerWidget {
     }
 
     async saveDesignWithPNGDisplay() {
-        const success = await this.saveDesignInternal();
-        if (success) {
-            // Brief pause so the success toast is visible, then go to dashboard
-            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+        if (this._saving) return;
+        this._saving = true;
+        try {
+            const success = await this.saveDesignInternal();
+            if (success) {
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+            }
+        } finally {
+            this._saving = false;
         }
     }
 

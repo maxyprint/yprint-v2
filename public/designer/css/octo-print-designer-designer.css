@@ -7,7 +7,11 @@
     display: flex;
     border-radius: 20px;
     border: 2px solid var(--designer-border-color);
-    height: calc(100vh - 124px);
+    /* 65px = 64px nav + 1px nav border-bottom.
+       margin: -30px -20px cancels the outer layout's padding: 30px 20px,
+       so the designer fills the viewport from nav-bottom to viewport-bottom. */
+    height: calc(100vh - 65px);
+    margin: -30px -20px;
     min-height: 500px;
 }
 
@@ -641,6 +645,7 @@
         flex-direction: column;
         border: none;
         height: unset;
+        margin: 0;
     }
 
     .octo-print-designer aside{

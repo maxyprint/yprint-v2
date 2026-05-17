@@ -219,14 +219,10 @@ export default function DashboardPage() {
     }
   }
 
-  // Renders the design image: product_images mockup → CSS composite → design PNG alone
+  // Renders the design image: shirt mockup composite → saved preview → design PNG alone
   const renderDesignImage = (design: DesignListItem) => {
-    const savedMockup = design.product_images?.[0]?.url ?? null
-
-    if (savedMockup) {
-      return <img src={savedMockup} alt={design.name} style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f5f5f5' }} />
-    }
-
+    // Always prefer the CSS composite (shirt + design overlay) when shirt is available.
+    // design_png from design_pngs table is a transparent-background print PNG — perfect overlay.
     if (design.shirt_image) {
       const pz = design.print_zone
       const overlayStyle: React.CSSProperties = pz ? {
@@ -237,12 +233,20 @@ export default function DashboardPage() {
         pointerEvents: 'none',
       } : { position: 'absolute', inset: '10%', width: '80%' }
 
+      const overlay = design.design_png || design.product_images?.[0]?.url || null
+
       return (
         <div style={{ position: 'relative', width: '100%', height: '100%', background: '#f5f5f5' }}>
           <img src={design.shirt_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          {design.design_png && <img src={design.design_png} alt={design.name} style={overlayStyle} />}
+          {overlay && <img src={overlay} alt={design.name} style={overlayStyle} />}
         </div>
       )
+    }
+
+    // Fallback: saved canvas preview or print PNG
+    const savedMockup = design.product_images?.[0]?.url ?? null
+    if (savedMockup) {
+      return <img src={savedMockup} alt={design.name} style={{ width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#f5f5f5' }} />
     }
 
     if (design.design_png) {
