@@ -1,24 +1,15 @@
-console.log('🎯 SCRIPT START: designer.bundle.js is loading...');
-
 // Global flag to prevent double initialization
 let designerInitialized = false;
 
 // Wait for fabric.js to be available before continuing
 function waitForFabric() {
-    console.log('🎯 FABRIC CHECK: fabric object available:', typeof fabric);
-
     if (typeof fabric !== 'undefined') {
-        console.log('🎯 FABRIC AVAILABLE: fabric.js is ready, initializing components...');
         initializeDesignerComponents();
         return;
     }
 
-    console.log('🎯 FABRIC WAITING: Setting up event listener for fabricGlobalReady...');
-
     // Set up event listener for fabricGlobalReady
     const handleFabricReady = (event) => {
-        console.log('🎯 FABRIC EVENT: fabricGlobalReady received, source:', event.detail?.source);
-        console.log('🎯 FABRIC AVAILABLE: fabric.js is ready via event, initializing components...');
         window.removeEventListener('fabricGlobalReady', handleFabricReady);
         clearTimeout(timeoutId);
         initializeDesignerComponents();
@@ -32,10 +23,7 @@ function waitForFabric() {
 
     const pollBackup = () => {
         attempts++;
-        console.log(`🎯 FABRIC POLL: Attempt ${attempts}/${maxAttempts}, fabric available:`, typeof fabric);
-
         if (typeof fabric !== 'undefined') {
-            console.log('🎯 FABRIC AVAILABLE: fabric.js ready via polling backup, initializing components...');
             window.removeEventListener('fabricGlobalReady', handleFabricReady);
             clearTimeout(timeoutId);
             initializeDesignerComponents();
@@ -53,18 +41,15 @@ function waitForFabric() {
 function initializeDesignerComponents() {
     // Prevent double initialization
     if (designerInitialized) {
-        console.log('🎯 ALREADY INITIALIZED: Designer components already initialized, skipping...');
         return;
     }
 
     designerInitialized = true;
-    console.log('🎯 INITIALIZATION: Starting designer components initialization...');
 
     let Canvas, Image, Rect, ActiveSelection, filters, Group;
 
     try {
         ({ Canvas, Image, Rect, ActiveSelection, filters, Group } = fabric);
-        console.log('🎯 FABRIC DESTRUCTURE: Successfully destructured fabric components');
 
         // Continue with the rest of the script
         loadDesignerWidget(Canvas, Image, Rect, ActiveSelection, filters, Group);
@@ -178,14 +163,8 @@ class ToastManager {
 class DesignerWidget {
 
     constructor() {
-        console.log('🎯 DESIGNER WIDGET: Constructor called');
         this.container = document.querySelector('.octo-print-designer');
-        console.log('🎯 DESIGNER WIDGET: Container element found:', !!this.container);
-        if (!this.container) {
-            console.error('❌ DESIGNER WIDGET: No .octo-print-designer element found on page');
-            return;
-        }
-        console.log('🎯 DESIGNER WIDGET: Proceeding with initialization...');
+        if (!this.container) return;
 
         this.currentDesignId = null;
         this.templates = new Map();
@@ -203,7 +182,6 @@ class DesignerWidget {
         this.tempImageCounter = 0;
         this.isLoggedIn = window.octoPrintDesigner?.isLoggedIn || false;
         this.isPrintingVisible = true; // Print Zone standardmäßig sichtbar
-        console.log('🎯 INITIAL isPrintingVisible set to:', this.isPrintingVisible);
         
         window.addEventListener('resize', () => this.handleResize());
 
@@ -220,7 +198,6 @@ class DesignerWidget {
         this.safeZoneRect = null;
 
         this.init();
-        console.log('✅ DESIGNER WIDGET: Constructor completed successfully');
     }
 
     initializeToolbar() {
@@ -313,17 +290,16 @@ class DesignerWidget {
             scaleX: img.scaleX,
             scaleY: img.scaleY,
         };
-        console.log('[T2] view='+this.currentView+' cx='+Math.round(cx)+' cy='+Math.round(cy)+' w='+Math.round(w)+' | img.left='+Math.round(img.left)+' img.top='+Math.round(img.top)+' img.scaleX='+img.scaleX.toFixed(4)+' img.width='+img.width+' | sw='+result.sw.toFixed(4));
         return result;
     }
 
     // Pure render function: applies transform data onto a fabric Image. No saves, no side effects.
     // Pass a precomputed zone (from _getZone) to render onto a different canvas (e.g. preview).
     _applyTransform(img, t, zone = null) {
+        const callerLabel = zone ? 'zone-relative' : 'absolute';
         // When restoring to the main canvas: prefer absolute coords if present.
         // These bypass the zone-relative conversion entirely and are always reliable.
         if (!zone && t.left !== undefined && t.zx !== undefined) {
-            console.log('[APPLY-ABS] view='+this.currentView+' t.left='+Math.round(t.left)+' t.top='+Math.round(t.top)+' t.scaleX='+t.scaleX.toFixed(4)+' t.scaleY='+(t.scaleY||t.scaleX).toFixed(4));
             img.set({ left: t.left, top: t.top, scaleX: t.scaleX, scaleY: t.scaleY || t.scaleX, angle: t.angle || 0 });
             return;
         }
@@ -331,7 +307,6 @@ class DesignerWidget {
         if (t.zx !== undefined) {
             // Zone-relative format: used for preview canvas or old saves without absolute coords
             const scaleX = t.nw > 0 ? (t.sw * w) / t.nw : 1;
-            console.log('[APPLY-ZR] view='+this.currentView+' cx='+Math.round(cx)+' w='+Math.round(w)+' t.zx='+t.zx.toFixed(3)+' t.sw='+t.sw.toFixed(3)+' → left='+Math.round(cx+t.zx*w)+' scaleX='+scaleX.toFixed(4));
             img.set({ left: cx + t.zx * w, top: cy + t.zy * h, scaleX, scaleY: scaleX, angle: t.angle || 0 });
         } else if (t.leftPct !== undefined) {
             img.set({ left: t.leftPct * cw, top: t.topPct * ch, scaleX: t.scaleX, scaleY: t.scaleY, angle: t.angle || 0 });
@@ -1004,7 +979,7 @@ class DesignerWidget {
         
         // Create a unique ID for the image
         const imageId = `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-        
+
         const imageData = {
             id: imageId,
             url: imageUrl,
@@ -1012,7 +987,6 @@ class DesignerWidget {
             fabricImage: fabricImage,
             visible: true
         };
-
         const key = `${this.currentVariation}_${this.currentView}`;
 
         // Initialize array if needed
@@ -1120,14 +1094,16 @@ class DesignerWidget {
     loadViewImage() {
         if (!this.currentView || !this.currentVariation) return;
 
-        const key = `${this.currentVariation}_${this.currentView}`;
+        const expectedView = this.currentView;
+        const expectedVariation = this.currentVariation;
+        const key = `${expectedVariation}_${expectedView}`;
         const imagesArray = this.variationImages.get(key);
 
         if (!imagesArray || imagesArray.length === 0) return;
 
         // Get template and variation data for filter settings
         const template = this.templates.get(this.activeTemplateId);
-        const variation = template.variations.get(this.currentVariation.toString());
+        const variation = template.variations.get(expectedVariation.toString());
         const isDarkShirt = variation.is_dark_shirt === true;
 
         // Load each image
@@ -1142,10 +1118,12 @@ class DesignerWidget {
             // If we have a URL but no fabric instance, create one
             if (imageData.url && !imageData.fabricImage) {
                 fabric.Image.fromURL(imageData.url, (img) => {
-                    // Store the fabricImage reference
+                    // Always store the fabricImage reference so future views can reuse it
                     imageData.fabricImage = img;
 
-                    // Apply common settings and load the image
+                    // Guard: view may have changed while the image was loading
+                    if (this.currentView !== expectedView || this.currentVariation !== expectedVariation) return;
+
                     this.configureAndLoadFabricImage(imageData, isDarkShirt);
                 });
             } else if (imageData.fabricImage) {
@@ -1171,26 +1149,11 @@ class DesignerWidget {
             padding: 5,
             preserveAspectRatio: true,
             visible: imageData.visible !== undefined ? imageData.visible : true,
-            ...(isDarkShirt
-                ? { globalCompositeOperation: 'screen', opacity: 0.95 }
-                : { globalCompositeOperation: 'multiply', opacity: 0.8 })
+            opacity: 1,
         });
 
         this._applyTransform(img, imageData.transform);
         imageData.transform = this._imgToTransform(img);
-
-        if (isDarkShirt) {
-            img.filters.push(
-                new fabric.Image.filters.Contrast({ contrast: 0.15 }),
-                new fabric.Image.filters.BlendColor({ color: '#ffffff', mode: 'screen', alpha: 0.1 })
-            );
-        } else {
-            img.filters.push(
-                new fabric.Image.filters.Brightness({ brightness: -0.05 }),
-                new fabric.Image.filters.Contrast({ contrast: 0.1 }),
-                new fabric.Image.filters.BlendColor({ color: '#ffffff', mode: 'multiply', alpha: 0.9 })
-            );
-        }
 
         img.applyFilters();
         this.bindImageEvents(img);
@@ -1305,10 +1268,7 @@ class DesignerWidget {
         );
 
         if (imageData) {
-            console.log('[USER-MOVE] key='+key+' img.left='+Math.round(img.left)+' img.top='+Math.round(img.top)+' img.scaleX='+img.scaleX.toFixed(4));
             imageData.transform = this._imgToTransform(img);
-        } else {
-            console.warn('[USER-MOVE] imageData NOT FOUND for key='+key+' — transform NOT updated!');
         }
     }
 
@@ -1514,30 +1474,16 @@ class DesignerWidget {
         this.togglePrintZoneButton.classList.toggle('active', this.isPrintingVisible);
 
         this.togglePrintZoneButton.addEventListener('click', () => {
-            console.log('🔘 PRINT ZONE TOGGLE DEBUG START:');
-            console.log('  - Before toggle: isPrintingVisible =', this.isPrintingVisible);
-
             this.isPrintingVisible = !this.isPrintingVisible || false;
-
-            console.log('  - After toggle: isPrintingVisible =', this.isPrintingVisible);
-            console.log('  - printingZoneElement exists:', !!this.printingZoneElement);
-            console.log('  - Canvas objects before:', this.fabricCanvas.getObjects().length);
-
             this.togglePrintZoneButton.classList.toggle('active', this.isPrintingVisible);
 
-            if( this.isPrintingVisible ) {
-                console.log('  ✅ Adding print zone to canvas');
+            if (this.isPrintingVisible) {
                 this.fabricCanvas.add(this.printingZoneElement);
-                console.log('  - Print zone position on canvas:', this.printingZoneElement.left, ',', this.printingZoneElement.top);
-                console.log('  - Print zone size on canvas:', this.printingZoneElement.width, 'x', this.printingZoneElement.height);
             } else {
-                console.log('  ❌ Removing print zone from canvas');
                 this.fabricCanvas.remove(this.printingZoneElement);
             }
 
-            console.log('  - Canvas objects after:', this.fabricCanvas.getObjects().length);
             this.fabricCanvas.renderAll();
-            console.log('🔘 PRINT ZONE TOGGLE DEBUG END');
         });
     }
 
@@ -1686,23 +1632,8 @@ class DesignerWidget {
     }
 
     showLoginModal() {
-
-        try{
-            elementorProFrontend.modules.popup.showPopup( { id: 1831 } );
-        }catch(e){
-        }
-
-        // const loginModal = document.getElementById('loginRequiredModal');
-        // if (!loginModal) return;
-
-        // // Disable all interactions with the designer
-        // this.container.querySelectorAll('button, input, a').forEach(element => {
-        //     if (!element.closest('#loginRequiredModal')) {
-        //         element.style.pointerEvents = 'none';
-        //     }
-        // });
-
-        // loginModal.classList.remove('hidden');
+        const loginModal = document.getElementById('loginRequiredModal');
+        if (loginModal) loginModal.classList.remove('hidden');
     }
 
     hideModal() {
@@ -1712,11 +1643,7 @@ class DesignerWidget {
 
     async generateAndShowPNG() {
         try {
-            console.log('🎨 PNG Generation: Starting PNG generation from save button...');
-
-            // Check if PNG generator is available
             if (typeof window.generatePNGForDownload === 'function') {
-                console.log('✅ PNG Generation: generatePNGForDownload function found');
 
                 // Generate PNG using the existing function
                 const pngDataUrl = await window.generatePNGForDownload();
@@ -1859,25 +1786,14 @@ class DesignerWidget {
                 this.toastManager.show('Design saved!', 'success');
                 this.currentDesignId = data.data.design_id;
 
-                // Generate print-ready PNG files after successful save - ENHANCED MULTI-VIEW INTEGRATION
+                // Generate print-ready PNG files after successful save
                 try {
-                    console.log('🖨️ Generating print-ready PNG files with validated design ID...');
-
-                    // Use enhanced PNG generation function with design ID validation
                     if (typeof window.generatePNGForSave === 'function') {
-                        console.log('🎯 Using enhanced multi-view PNG generation with design ID:', this.currentDesignId);
 
                         const pngResult = await window.generatePNGForSave(this.currentDesignId);
 
                         if (pngResult && pngResult.success) {
-                            console.log('✅ Multi-view PNG generation completed successfully!');
-                            console.log(`📊 Generated: ${pngResult.totalGenerated} PNGs, Uploaded: ${pngResult.successfulUploads}/${pngResult.totalGenerated}`);
-
-                            // Log all successful PNG URLs
                             if (pngResult.urls && pngResult.urls.length > 0) {
-                                console.log('🔗 All PNG URLs:', pngResult.urls);
-
-                                // Store PNG URLs in designer instance for future reference
                                 this._savedPNGs = {
                                     designId: this.currentDesignId,
                                     urls: pngResult.urls,
@@ -1890,7 +1806,7 @@ class DesignerWidget {
 
                             // Handle partial failures
                             if (pngResult.failedUploads > 0) {
-                                console.warn(`⚠️ ${pngResult.failedUploads} PNG uploads failed - check individual errors above`);
+                                console.warn(`${pngResult.failedUploads} PNG uploads failed`);
                             }
 
                         } else {
@@ -1922,27 +1838,14 @@ class DesignerWidget {
 
                             const pngData = await pngResponse.json();
 
-                            if (pngData.success) {
-                                console.log('✅ Legacy PNG saved successfully!');
-                                console.log('📁 PNG file location:', pngData.data.file_url);
-                                console.log('💾 PNG file path:', pngData.data.file_path);
-                            } else {
-                                console.warn('⚠️ Legacy PNG save failed:', pngData.data.message);
-                            }
-                        } else {
-                            console.warn('⚠️ Legacy PNG generation returned empty result');
                         }
-                    } else {
-                        console.warn('⚠️ No PNG generation function available');
                     }
                 } catch (pngError) {
-                    console.error('❌ PNG generation/save error:', pngError);
+                    console.error('PNG generation/save error:', pngError);
                     // Don't block the redirect if PNG fails
                 }
 
-                // Store redirect URL for later use but don't redirect
                 this._redirectUrl = data.data.redirect_url;
-                console.log('💾 Design saved successfully, redirect URL stored:', this._redirectUrl);
 
                 // Return success for PNG display handling
                 return true;
@@ -1962,10 +1865,7 @@ class DesignerWidget {
     }
 
     showPNGDisplay(pngData) {
-        // Hide save modal
         this.hideModal();
-
-        console.log('🖼️ Displaying generated PNGs:', pngData);
 
         // Create enhanced PNG display modal with debug info
         const pngModal = document.createElement('div');
@@ -2217,10 +2117,12 @@ class DesignerWidget {
                 const userImage = await Image.fromURL(imageData.url);
                 if (!userImage) continue;
 
+                // Set origin BEFORE applying transform so position values are interpreted correctly.
+                userImage.set({ originX: 'center', originY: 'center' });
                 // Apply transform via the canonical pipeline — same function as main canvas render.
                 // Any legacy format is handled by _applyTransform's migration read path.
                 this._applyTransform(userImage, imageData.transform, tempZone);
-                userImage.set({ originX: 'center', originY: 'center', clipPath: clipPath });
+                userImage.set({ clipPath: clipPath });
                 
                 // Apply dark/light shirt filters if needed
                 const isDarkShirt = variation.is_dark_shirt === true;
@@ -2332,7 +2234,6 @@ class DesignerWidget {
     }
 
     switchEditingMode(mode) {
-        console.log(`🔄 Switching to ${mode} mode`);
         this.editingMode = mode;
 
         // Clear existing zone overlays
@@ -2431,8 +2332,6 @@ class DesignerWidget {
         this.printZoneRect.on('modified', () => this.onPrintZoneModified());
 
         this.fabricCanvas.renderAll();
-
-        console.log('🖨️ Print Zone Overlay created:', printZoneData);
     }
 
     showSafeZoneOverlay() {
@@ -2484,8 +2383,6 @@ class DesignerWidget {
             height: (this.printZoneRect.height * this.printZoneRect.scaleY / this.fabricCanvas.height) * 100
         };
 
-        console.log('🖨️ Print Zone Modified:', printZoneData);
-
         // Save print zone data to view
         this.savePrintZoneToView(printZoneData);
     }
@@ -2502,8 +2399,6 @@ class DesignerWidget {
 
         // Update view with print zone data
         view.printZone = printZoneData;
-
-        console.log('💾 Print Zone saved to view:', view.name, printZoneData);
 
         // Trigger save to database
         this.savePrintZoneToDatabase(printZoneData);
@@ -2530,13 +2425,11 @@ class DesignerWidget {
 
             if (result.success) {
                 this.toastManager.show('Print Zone saved successfully!', 'success');
-                console.log('✅ Print Zone saved to database');
             } else {
                 this.toastManager.show('Failed to save Print Zone: ' + result.data, 'error');
-                console.error('❌ Failed to save Print Zone:', result.data);
             }
         } catch (error) {
-            console.error('❌ Error saving Print Zone:', error);
+            console.error('Error saving Print Zone:', error);
             this.toastManager.show('Error saving Print Zone', 'error');
         }
     }
@@ -2552,8 +2445,6 @@ class DesignerWidget {
             width: (view.safeZone?.width || 240) + 20,
             height: (view.safeZone?.height || 320) + 40
         };
-
-        console.log('🔄 Resetting Print Zone to default:', defaultPrintZone);
 
         this.savePrintZoneToView(defaultPrintZone);
 
@@ -2585,56 +2476,31 @@ class DesignerWidget {
 }
 
 // Make DesignerWidget globally available
-console.log('🎯 GLOBAL ASSIGNMENT: Making DesignerWidget globally available...');
 window.DesignerWidget = DesignerWidget;
-console.log('🎯 GLOBAL ASSIGNMENT: DesignerWidget assigned to window');
-
-// Initialize the designer widget when DOM is ready (or immediately if already ready)
-console.log('🎯 DESIGNER INITIALIZATION: Starting designer widget initialization...');
 
 function initializeDesignerWidget() {
-    console.log('🎯 DESIGNER WIDGET: Initializing DesignerWidget...');
     try {
         window.designerInstance = new DesignerWidget();
-        console.log('🎯 DESIGNER WIDGET: Instance created successfully:', !!window.designerInstance);
-
-        // Dispatch designer ready event
         window.dispatchEvent(new CustomEvent('designerReady', {
             detail: { instance: window.designerInstance }
         }));
-        console.log('🎯 DESIGNER WIDGET: designerReady event dispatched');
     } catch (error) {
-        console.error('❌ DESIGNER WIDGET: Error creating instance:', error);
+        console.error('Error creating DesignerWidget instance:', error);
     }
 }
 
-// Check if DOM is already loaded or wait for it
 if (document.readyState === 'loading') {
-    console.log('🎯 DOM STATUS: DOM still loading, waiting for DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', initializeDesignerWidget);
 } else {
-    console.log('🎯 DOM STATUS: DOM already ready, initializing immediately...');
     initializeDesignerWidget();
 }
 
-// Additional load event for debugging and fallback
 window.addEventListener('load', () => {
-    console.log('🎯 WINDOW LOAD: Window load event fired');
-    console.log('🎯 WINDOW LOAD: designerInstance exists:', !!window.designerInstance);
-
     if (!window.designerInstance) {
-        console.error('❌ WINDOW LOAD: Designer instance missing, attempting recovery...');
-        // Try to initialize again as fallback
         setTimeout(initializeDesignerWidget, 100);
-    } else {
-        console.log('✅ WINDOW LOAD: Designer instance ready and available');
     }
 });
 
 } // End of loadDesignerWidget function
 
-console.log('🎯 SCRIPT END: designer.bundle.js execution completed successfully');
-
-// Start waiting for fabric.js
-console.log('🎯 FABRIC INIT: Starting fabric.js detection...');
 waitForFabric();

@@ -25,17 +25,18 @@ function DesignerInner() {
   const urlDesignId = searchParams.get('design_id') || searchParams.get('design') || ''
   const urlTemplateId = searchParams.get('template_id') || ''
 
-  const { user, accessToken } = useAuthStore()
+  const { user, accessToken, loading: authLoading } = useAuthStore()
   const [fabricReady, setFabricReady] = useState(false)
   const [configSet, setConfigSet] = useState(false)
   const [defaultTemplateId, setDefaultTemplateId] = useState(urlTemplateId)
 
-  // Set window config once we have the access token
+  // Set window config once auth has resolved (works for both logged-in and guest users).
+  // The nonce is only required by the API for save/upload actions — template loading is public.
   useEffect(() => {
-    if (!accessToken || configSet) return
+    if (authLoading || configSet) return
     window.octoPrintDesigner = {
       ajaxUrl: '/api',
-      nonce: accessToken,
+      nonce: accessToken || '',
       isLoggedIn: !!user,
       userId: user?.id || '',
       uploadsUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`,
@@ -43,6 +44,14 @@ function DesignerInner() {
       siteUrl: process.env.NEXT_PUBLIC_APP_URL || window.location.origin,
     }
     setConfigSet(true)
+  }, [authLoading, accessToken, user, configSet])
+
+  // Keep nonce fresh after token refreshes (e.g. Supabase auto-refresh every hour)
+  useEffect(() => {
+    if (!configSet || !window.octoPrintDesigner) return
+    window.octoPrintDesigner.nonce = accessToken || ''
+    window.octoPrintDesigner.isLoggedIn = !!user
+    window.octoPrintDesigner.userId = user?.id || ''
   }, [accessToken, user, configSet])
 
   // If no template_id in URL, fetch templates and use the first one as default
@@ -120,7 +129,6 @@ function DesignerInner() {
       <main
         className="octo-print-designer"
         data-default-template-id={defaultTemplateId}
-        style={{ minHeight: 'calc(100vh - 64px)' }}
       >
         <aside>
           <nav className="designer-nav">

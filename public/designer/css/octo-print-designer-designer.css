@@ -7,7 +7,8 @@
     display: flex;
     border-radius: 20px;
     border: 2px solid var(--designer-border-color);
-    height: 550px;
+    height: calc(100vh - 124px);
+    min-height: 500px;
 }
 
 .octo-print-designer aside{
