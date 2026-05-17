@@ -1223,12 +1223,14 @@ class DesignerWidget {
         };
     
         const key = `${this.currentVariation}_${this.currentView}`;
-        
+
+        console.log('[storeViewImage] key:', key, '| fabricImage.originX:', fabricImage.originX, '| transform:', JSON.stringify(imageData.transform), '| canvas:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
+
         // Initialize array if needed
         if (!this.variationImages.has(key)) {
             this.variationImages.set(key, []);
         }
-        
+
         // Add to image array instead of replacing
         this.variationImages.get(key).push(imageData);
         
@@ -1328,24 +1330,29 @@ class DesignerWidget {
 
     loadViewImage() {
         if (!this.currentView || !this.currentVariation) return;
-    
+
         const key = `${this.currentVariation}_${this.currentView}`;
         const imagesArray = this.variationImages.get(key);
-        
+
+        console.log('[loadViewImage] key:', key, '| found images:', imagesArray ? imagesArray.length : 'NONE');
+
         if (!imagesArray || imagesArray.length === 0) return;
-        
+
         // Get template and variation data for filter settings
         const template = this.templates.get(this.activeTemplateId);
         const variation = template.variations.get(this.currentVariation.toString());
         const isDarkShirt = variation.is_dark_shirt === true;
-    
+
         // Load each image
-        imagesArray.forEach(imageData => {
+        imagesArray.forEach((imageData, idx) => {
+            const alreadyOnCanvas = imageData.fabricImage && this.fabricCanvas.contains(imageData.fabricImage);
+            console.log(`[loadViewImage] img[${idx}] alreadyOnCanvas=${alreadyOnCanvas} hasFabricImg=${!!imageData.fabricImage} transform=`, JSON.stringify(imageData.transform));
+
             // Skip if we already have this image on canvas (avoids duplicates)
-            if (imageData.fabricImage && this.fabricCanvas.contains(imageData.fabricImage)) {
+            if (alreadyOnCanvas) {
                 return;
             }
-            
+
             // If we have a URL but no fabric instance, create one
             if (imageData.url && !imageData.fabricImage) {
                 fabric.Image.fromURL(imageData.url, (img) => {
@@ -1365,6 +1372,8 @@ class DesignerWidget {
     configureAndLoadFabricImage(imageData, isDarkShirt) {
         const img = imageData.fabricImage;
         img.filters = [];
+
+        console.log('[configureAndLoadFabricImage] BEFORE set — img.originX:', img.originX, 'img.left:', img.left, 'img.top:', img.top, 'img.scaleX:', img.scaleX);
 
         // Transform first, filters second — applyFilters() in Fabric v5 changes _element
         // and _filterScaling*, which can conflict with width/height set afterwards.
@@ -1400,6 +1409,8 @@ class DesignerWidget {
         }
 
         img.applyFilters();
+
+        console.log('[configureAndLoadFabricImage] AFTER set+filters — img.originX:', img.originX, 'img.left:', img.left, 'img.top:', img.top, 'img.scaleX:', img.scaleX, 'img.width:', img.width, 'canvasW:', this.fabricCanvas.width, 'canvasH:', this.fabricCanvas.height);
 
         this.bindImageEvents(img);
         this.fabricCanvas.add(img);
