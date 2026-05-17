@@ -286,7 +286,7 @@ class DesignerWidget {
         }
         const sz = view.safeZone;
         const ratio = canvas ? (canvas.width / this.fabricCanvas.width) : 1;
-        const zone = {
+        return {
             cx: (sz.left / 100) * c.width,
             cy: (sz.top  / 100) * c.height,
             w:  sz.width  * ratio,
@@ -294,8 +294,6 @@ class DesignerWidget {
             cw: c.width,
             ch: c.height,
         };
-        console.log('[ZONE] canvas:', c.width, 'x', c.height, '| sz:', sz.left, sz.top, sz.width, sz.height, '| cx,cy,w,h:', zone.cx.toFixed(0), zone.cy.toFixed(0), zone.w.toFixed(0), zone.h.toFixed(0));
-        return zone;
     }
 
     // Pure function: fabric Image → zone-relative transform object. No side effects, no mutations.
@@ -474,7 +472,6 @@ class DesignerWidget {
     async loadInitialDesign(designId = null) {
         const id = designId || new URLSearchParams(window.location.search).get('design_id');
         if (!id) return;
-        console.log('[EDIT] loadInitialDesign called with id:', id, '| canvas:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
 
         // Canvas-Dimensionen prüfen — wenn initializeCanvas() zu früh lief (Layout noch 0×0),
         // jetzt korrigieren. DOM-Layout ist zu diesem Zeitpunkt garantiert abgeschlossen.
@@ -569,14 +566,17 @@ class DesignerWidget {
     initializeCanvas() {
         const domW = this.canvas.offsetWidth;
         const domH = this.canvas.offsetHeight;
-        console.log('[CANVAS INIT] offsetWidth:', domW, 'offsetHeight:', domH);
+        // 300×150 are the HTML <canvas> intrinsic defaults — means CSS layout hasn't run yet
+        // (happens in edit mode because scripts load before the flex container is painted).
+        // Fall back to the template coordinate space used everywhere else in the codebase.
+        const w = (domW === 300 && domH === 150) ? 616 : domW;
+        const h = (domW === 300 && domH === 150) ? 626 : domH;
         this.fabricCanvas = new fabric.Canvas('octo-print-designer-canvas', {
-            width: domW,
-            height: domH,
+            width: w,
+            height: h,
             backgroundColor: '#fff',
             preserveObjectStacking: true
         });
-        console.log('[CANVAS INIT] Fabric canvas size:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
     }
 
     async loadTemplates() {
