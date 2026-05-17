@@ -488,18 +488,11 @@ class DesignerWidget {
             if (!data?.design_data) return;
 
             const state = data.design_data;
-            console.log('[EDIT LOAD] templateId:', state.templateId, '| currentVariation:', state.currentVariation, '| currentView:', state.currentView);
-            const imgKeys = Object.keys(state.variationImages || {});
-            imgKeys.forEach(k => {
-                const imgs = state.variationImages[k];
-                imgs.forEach((img, i) => console.log('[EDIT LOAD] key:', k, 'img', i, 'transform:', JSON.stringify(img.transform)));
-            });
 
             // Load the template the design was saved with, if different from current.
             if (state.templateId && state.templateId !== this.activeTemplateId) {
                 await this.loadTemplate(state.templateId);
             }
-            console.log('[EDIT LOAD] after loadTemplate: currentView:', this.currentView, 'currentVariation:', this.currentVariation);
 
             // Populate variationImages BEFORE rendering so loadViewImage picks them up.
             this.applyDesignState(state);
@@ -511,7 +504,6 @@ class DesignerWidget {
             if (state.currentView) {
                 await this.loadTemplateView(state.currentView);
             }
-            console.log('[EDIT LOAD] done. currentView:', this.currentView, 'currentVariation:', this.currentVariation);
         } catch (e) {
             console.error('loadInitialDesign failed:', e);
         }
@@ -572,16 +564,12 @@ class DesignerWidget {
     }
 
     initializeCanvas() {
-        const domW = this.canvas.offsetWidth;
-        const domH = this.canvas.offsetHeight;
-        // 300×150 are the HTML <canvas> intrinsic defaults — means CSS layout hasn't run yet
-        // (happens in edit mode because scripts load before the flex container is painted).
-        // Fall back to the template coordinate space used everywhere else in the codebase.
-        const w = (domW === 300 && domH === 150) ? 616 : domW;
-        const h = (domW === 300 && domH === 150) ? 626 : domH;
+        // Always use fixed 616×626 — this is the canonical coordinate space for all zone/transform
+        // calculations in the template system. CSS scales the element visually; the internal
+        // coordinate system must match the server-side constants (CANVAS_W=616, CANVAS_H=626).
         this.fabricCanvas = new fabric.Canvas('octo-print-designer-canvas', {
-            width: w,
-            height: h,
+            width: 616,
+            height: 626,
             backgroundColor: '#fff',
             preserveObjectStacking: true
         });
@@ -780,6 +768,10 @@ class DesignerWidget {
     async loadTemplateView(viewId) {
 
         if (!this.activeTemplateId) return;
+
+        // Update currentView immediately so _getZone() and loadViewImage() use the correct view
+        // even when the fabric.Image.fromURL callback fires asynchronously later.
+        this.currentView = viewId;
 
         const template = this.templates.get(this.activeTemplateId);
         const variation = template.variations.get(this.currentVariation.toString());
@@ -1174,11 +1166,7 @@ class DesignerWidget {
                 : { globalCompositeOperation: 'multiply', opacity: 0.8 })
         });
 
-        const t = imageData.transform;
-        const zone = this._getZone();
-        console.log('[RESTORE] view:', this.currentView, '| t:', JSON.stringify(t), '| zone cx,cy,w,h:', zone.cx.toFixed(1), zone.cy.toFixed(1), zone.w.toFixed(1), zone.h.toFixed(1), '| canvas:', this.fabricCanvas.width, 'x', this.fabricCanvas.height);
         this._applyTransform(img, imageData.transform);
-        console.log('[RESTORE] img.left:', img.left?.toFixed(1), 'img.top:', img.top?.toFixed(1), 'scaleX:', img.scaleX?.toFixed(3));
         imageData.transform = this._imgToTransform(img);
 
         if (isDarkShirt) {
