@@ -1522,7 +1522,7 @@ class DesignerWidget {
         );
         
         if (imageData) {
-            // Update transform data
+            console.trace('[updateImageTransform] key:', key, 'scaleX:', img.scaleX, 'left:', img.left, 'top:', img.top);
             imageData.transform = {
                 left: img.left,
                 top: img.top,
