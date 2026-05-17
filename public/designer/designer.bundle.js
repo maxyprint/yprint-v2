@@ -1364,75 +1364,46 @@ class DesignerWidget {
 
     configureAndLoadFabricImage(imageData, isDarkShirt) {
         const img = imageData.fabricImage;
-        
-        // Reset filters
         img.filters = [];
-        
+
+        // Transform first, filters second — applyFilters() in Fabric v5 changes _element
+        // and _filterScaling*, which can conflict with width/height set afterwards.
+        img.set({
+            originX: 'center',
+            originY: 'center',
+            ...imageData.transform,
+            cornerSize: 10,
+            cornerStyle: 'circle',
+            transparentCorners: false,
+            cornerColor: '#007cba',
+            borderColor: '#007cba',
+            cornerStrokeColor: '#fff',
+            padding: 5,
+            preserveAspectRatio: true,
+            visible: imageData.visible !== undefined ? imageData.visible : true,
+            ...(isDarkShirt
+                ? { globalCompositeOperation: 'screen', opacity: 0.95 }
+                : { globalCompositeOperation: 'multiply', opacity: 0.8 })
+        });
+
         if (isDarkShirt) {
-            // Settings for dark shirts (keep existing logic)
             img.filters.push(
                 new fabric.Image.filters.Contrast({ contrast: 0.15 }),
-                new fabric.Image.filters.BlendColor({
-                    color: '#ffffff',
-                    mode: 'screen',
-                    alpha: 0.1
-                })
+                new fabric.Image.filters.BlendColor({ color: '#ffffff', mode: 'screen', alpha: 0.1 })
             );
-    
-            img.applyFilters();
-            
-            img.set({
-                ...imageData.transform,
-                cornerSize: 10,
-                cornerStyle: 'circle',
-                transparentCorners: false,
-                cornerColor: '#007cba',
-                borderColor: '#007cba',
-                cornerStrokeColor: '#fff',
-                padding: 5,
-                globalCompositeOperation: 'screen',
-                preserveAspectRatio: true,
-                opacity: 0.95,
-                visible: imageData.visible !== undefined ? imageData.visible : true
-            });
         } else {
-            // Settings for light shirts (keep existing logic)
             img.filters.push(
                 new fabric.Image.filters.Brightness({ brightness: -0.05 }),
                 new fabric.Image.filters.Contrast({ contrast: 0.1 }),
-                new fabric.Image.filters.BlendColor({
-                    color: '#ffffff',
-                    mode: 'multiply',
-                    alpha: 0.9
-                })
+                new fabric.Image.filters.BlendColor({ color: '#ffffff', mode: 'multiply', alpha: 0.9 })
             );
-    
-            img.applyFilters();
-            
-            img.set({
-                ...imageData.transform,
-                cornerSize: 10,
-                cornerStyle: 'circle',
-                transparentCorners: false,
-                cornerColor: '#007cba',
-                borderColor: '#007cba',
-                cornerStrokeColor: '#fff',
-                padding: 5,
-                globalCompositeOperation: 'multiply',
-                preserveAspectRatio: true,
-                opacity: 0.8,
-                visible: imageData.visible !== undefined ? imageData.visible : true
-            });
         }
-    
-        // Bind events to this image
+
+        img.applyFilters();
+
         this.bindImageEvents(img);
-        
-        // Add to canvas
         this.fabricCanvas.add(img);
         img.setCoords();
-        
-        // Render canvas
         this.fabricCanvas.renderAll();
     }
 
@@ -2433,45 +2404,33 @@ class DesignerWidget {
 
     async applyDesignState(design) {
         const designData = JSON.parse(design.design_data);
-        
-        // Load the template first
-        await this.loadTemplate(designData.templateId);
-        
-        // Clear existing images
+
+        // Only reload template when it actually changed
+        if (this.activeTemplateId !== designData.templateId) {
+            await this.loadTemplate(designData.templateId);
+        }
+
+        // Restore variation without triggering a view switch
+        if (designData.currentVariation && this.currentVariation !== designData.currentVariation) {
+            this.currentVariation = designData.currentVariation;
+        }
+
+        // Restore all saved images into variationImages map
         this.variationImages.clear();
-        
-        // Restore variation images - handle both formats
         for (const [key, value] of Object.entries(designData.variationImages || {})) {
             const underscoreIdx = key.indexOf('_');
             const variationId = underscoreIdx >= 0 ? key.slice(0, underscoreIdx) : key;
-            const viewId = underscoreIdx >= 0 ? key.slice(underscoreIdx + 1) : '';
-            
+            const viewId      = underscoreIdx >= 0 ? key.slice(underscoreIdx + 1) : '';
             if (Array.isArray(value)) {
-                // New format: array of images
-                for (const imageData of value) {
-                    await this.restoreViewImage(variationId, viewId, imageData);
-                }
+                for (const imageData of value) await this.restoreViewImage(variationId, viewId, imageData);
             } else {
-                // Old format: single image object - convert to array format
                 await this.restoreViewImage(variationId, viewId, value);
             }
         }
-    
-        // Korrekte View bestimmen: gespeicherte currentView bevorzugen,
-        // sonst aus variationImages-Keys inferieren — "front"-Views bevorzugen
-        const variationPrefix = this.currentVariation + '_';
-        const viewsWithImages = Object.keys(designData.variationImages || {})
-            .filter(key => key.startsWith(variationPrefix))
-            .map(key => key.slice(variationPrefix.length));
-        const targetViewId = designData.currentView
-            || viewsWithImages.find(v => v.includes('front'))
-            || viewsWithImages[0]
-            || this.currentView;
 
-        this.currentView = targetViewId;
-        await this.loadTemplateView(targetViewId);
+        // Paint images onto the currently visible view — no view switch
+        this.loadViewImage();
 
-        // Store the current design ID
         this.currentDesignId = design.id;
         this.modalNameInput.value = design.name;
         this.modalDesignId.value = design.id;
