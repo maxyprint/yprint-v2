@@ -526,10 +526,6 @@ class DesignerWidget {
         if (!state?.variationImages) return;
         for (const [key, images] of Object.entries(state.variationImages)) {
             const entries = images.map(img => {
-                const t = img.transform;
-                if (t && ('left' in t || 'top' in t) && ('zx' in t || 'zy' in t)) {
-                    console.error('INVALID MIXED TRANSFORM STATE detected after load:', key, t);
-                }
                 return {
                     id: img.id,
                     url: img.url,
@@ -2134,10 +2130,6 @@ class DesignerWidget {
             if (!imagesArray || imagesArray.length === 0) continue;
 
             state.variationImages[key] = imagesArray.map(imageData => {
-                const t = imageData.transform;
-                if (t && ('left' in t || 'top' in t) && ('zx' in t || 'zy' in t)) {
-                    console.error('INVALID MIXED TRANSFORM STATE detected before save:', key, t);
-                }
                 return {
                     id: imageData.id,
                     url: imageData.url,
